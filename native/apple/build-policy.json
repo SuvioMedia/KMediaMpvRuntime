@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "artifact": "KMediaMpvApple",
+  "publicationEnabled": true,
+  "releaseEligible": true,
+  "targets": {
+    "ios-arm64": {
+      "sdk": "iphoneos",
+      "architecture": "arm64",
+      "mesonSystem": "darwin",
+      "ffmpegTargetOs": "darwin",
+      "audioBackend": "audiounit",
+      "minimumOs": "16.2",
+      "simulator": false
+    },
+    "ios-simulator-arm64": {
+      "sdk": "iphonesimulator",
+      "architecture": "arm64",
+      "mesonSystem": "darwin",
+      "ffmpegTargetOs": "darwin",
+      "audioBackend": "audiounit",
+      "minimumOs": "16.2",
+      "simulator": true
+    }
+  },
+  "toolchain": {
+    "mesonVersion": "1.11.2",
+    "cmakeMinimumVersion": "3.25.0",
+    "minimumXcodeMajor": 16
+  },
+  "componentOverrides": {
+    "mpv": {
+      "replace": {
+        "-Daudiounit=disabled": "-Daudiounit=enabled",
+        "-Dvulkan=disabled": "-Dvulkan=enabled",
+        "-Dvideotoolbox-pl=disabled": "-Dvideotoolbox-pl=enabled"
+      },
+      "append": []
+    },
+    "libplacebo": {
+      "replace": {
+        "-Dvulkan=disabled": "-Dvulkan=enabled",
+        "-Dglslang=disabled": "-Dglslang=enabled"
+      },
+      "append": [
+        "-Dvk-proc-addr=enabled"
+      ]
+    },
+    "ffmpeg": {
+      "replace": {},
+      "append": [
+        "--enable-cross-compile",
+        "--enable-pic",
+        "--disable-asm"
+      ]
+    }
+  },
+  "requiredCapabilities": {
+    "videoOutput": true,
+    "gpuVideoOutput": true,
+    "moltenVkVideoOutput": true,
+    "videoToolboxHardwareDecode": true,
+    "assSubtitles": true,
+    "audioOutput": true,
+    "networkInput": true,
+    "systemFontDiscovery": false
+  },
+  "releaseBlockers": []
+}

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 2,
+  "name": "jinja2",
+  "version": "3.1.6+15206881c006c79667fe5154fe80c01c65410679",
+  "upstreamLicenseSummarySpdx": "BSD-3-Clause",
+  "builtOutputLicenseSpdx": "BSD-3-Clause",
+  "linkage": "build-only",
+  "sourceUrl": "https://github.com/pallets/jinja/archive/15206881c006c79667fe5154fe80c01c65410679.tar.gz",
+  "sourceSha256": "b88a20dcc2e34072fcf4159325bc6c34cd4b29a81a8b83d15d2f28ba561da296",
+  "sourceArchive": "jinja-15206881c006c79667fe5154fe80c01c65410679.tar.gz",
+  "copyrightFiles": [
+    {"sourcePath": "LICENSE.txt", "noticeFile": "jinja2.txt"}
+  ],
+  "buildSystem": "python-build-tool",
+  "buildArguments": ["unpack-to=libplacebo/3rdparty/jinja"],
+  "runtimeLibraries": [],
+  "dependencies": ["markupsafe"],
+  "bundled": false
+}

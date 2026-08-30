@@ -1,0 +1,8 @@
+KMediaMpvRuntime
+Copyright (c) 2026 Shusek
+
+This public repository contains the LGPL mpv/libplacebo runtime, its build and
+relink material, pinned component manifests, and platform payload publications.
+It does not contain the proprietary Java API or Android JNI client.
+
+The private KMediaMpvClient artifacts depend on this replaceable runtime.

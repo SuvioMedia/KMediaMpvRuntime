@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "components": {
+    "glslang": {
+      "version": "15.4.0",
+      "licenseSpdx": "BSD-3-Clause",
+      "sourceUrl": "https://github.com/KhronosGroup/glslang/archive/refs/tags/15.4.0.tar.gz",
+      "sourceSha256": "b16c78e7604b9be9f546ee35ad8b6db6f39bbbbfb19e8d038b6fe2ea5bba4ff4",
+      "sourceArchive": "glslang-15.4.0.tar.gz",
+      "copyrightFile": "LICENSE.txt",
+      "noticeFile": "glslang.txt",
+      "buildSystem": "cmake-static",
+      "buildArguments": [
+        "-DBUILD_SHARED_LIBS=OFF",
+        "-DENABLE_GLSLANG_BINARIES=OFF",
+        "-DENABLE_SPVREMAPPER=OFF",
+        "-DENABLE_OPT=OFF",
+        "-DENABLE_HLSL=OFF",
+        "-DGLSLANG_TESTS=OFF",
+        "-DGLSLANG_ENABLE_INSTALL=ON"
+      ],
+      "runtimeLibraries": [],
+      "binaryDistribution": null
+    },
+    "moltenvk": {
+      "version": "1.4.2",
+      "licenseSpdx": "Apache-2.0",
+      "sourceUrl": "https://github.com/KhronosGroup/MoltenVK/archive/refs/tags/v1.4.2.tar.gz",
+      "sourceSha256": "6864db532f1dbbdb621a8d0ec13f24edae318fd9269dd3dd0cdff791334bb1cb",
+      "sourceArchive": "MoltenVK-1.4.2.tar.gz",
+      "copyrightFile": "LICENSE",
+      "noticeFile": "moltenvk.txt",
+      "buildSystem": "audited-upstream-xcframework",
+      "buildArguments": [
+        "select the target-specific dynamic MoltenVK.framework slice",
+        "thin the simulator slice to arm64",
+        "raise LC_BUILD_VERSION minimum iOS to 16.2",
+        "repackage as the namespaced KMediaMpvMoltenVK framework"
+      ],
+      "runtimeLibraries": [
+        "moltenvk"
+      ],
+      "binaryDistribution": {
+        "url": "https://github.com/KhronosGroup/MoltenVK/releases/download/v1.4.2/MoltenVK-all.tar",
+        "sha256": "562a15a29bc358446a56a4091c5f7e08f604184187c1d34f712148b61ef17276",
+        "archive": "MoltenVK-all-1.4.2.tar"
+      }
+    }
+  }
+}

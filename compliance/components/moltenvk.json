@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 2,
+  "name": "moltenvk",
+  "version": "1.4.2",
+  "upstreamLicenseSummarySpdx": "Apache-2.0",
+  "builtOutputLicenseSpdx": "Apache-2.0",
+  "linkage": "dynamic",
+  "sourceUrl": "https://github.com/KhronosGroup/MoltenVK/archive/refs/tags/v1.4.2.tar.gz",
+  "sourceSha256": "6864db532f1dbbdb621a8d0ec13f24edae318fd9269dd3dd0cdff791334bb1cb",
+  "sourceArchive": "MoltenVK-1.4.2.tar.gz",
+  "copyrightFiles": [
+    {"sourcePath": "LICENSE", "noticeFile": "moltenvk.txt"}
+  ],
+  "buildSystem": "audited-upstream-xcframework",
+  "buildArguments": [
+    "select-dynamic-xcframework-slice",
+    "thin-to-arm64",
+    "normalize-macos-minimum-version",
+    "namespace-install-name",
+    "ad-hoc-sign-normalized-binary"
+  ],
+  "runtimeLibraries": ["moltenvk"],
+  "dependencies": ["vulkan_headers"],
+  "bundled": true
+}

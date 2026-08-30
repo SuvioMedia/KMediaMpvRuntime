@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "releaseEligible": true,
+  "capabilities": {
+    "videoOutput": true,
+    "assSubtitles": true,
+    "audioOutput": true,
+    "networkInput": true,
+    "systemFontDiscovery": false
+  },
+  "releaseBlockers": []
+}

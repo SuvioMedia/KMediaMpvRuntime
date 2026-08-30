@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 2,
+  "name": "libplacebo",
+  "version": "7.360.1",
+  "upstreamLicenseSummarySpdx": "LGPL-2.1-or-later",
+  "builtOutputLicenseSpdx": "LGPL-2.1-or-later",
+  "linkage": "dynamic",
+  "sourceUrl": "https://code.videolan.org/videolan/libplacebo/-/archive/v7.360.1/libplacebo-v7.360.1.tar.gz",
+  "sourceSha256": "14c0a99f4b01557ec9826ce6b1d52f6de21be274ba03fd5aab7307f18766dc39",
+  "sourceArchive": "libplacebo-v7.360.1.tar.gz",
+  "copyrightFiles": [
+    {"sourcePath": "LICENSE", "noticeFile": "libplacebo.txt"}
+  ],
+  "buildSystem": "meson",
+  "buildArguments": [
+    "--wrap-mode=nodownload",
+    "--libdir=lib",
+    "--auto-features=disabled",
+    "--buildtype=release",
+    "-Ddefault_library=shared",
+    "-Db_lto=false",
+    "-Dvulkan=disabled",
+    "-Dopengl=disabled",
+    "-Dd3d11=disabled",
+    "-Dglslang=disabled",
+    "-Dshaderc=disabled",
+    "-Dlcms=disabled",
+    "-Ddovi=disabled",
+    "-Dlibdovi=disabled",
+    "-Ddemos=false",
+    "-Dtests=false",
+    "-Dbench=false",
+    "-Dfuzz=false",
+    "-Dunwind=disabled",
+    "-Dxxhash=disabled"
+  ],
+  "runtimeLibraries": ["placebo"],
+  "dependencies": ["fast_float", "jinja2", "markupsafe", "vulkan_headers"],
+  "bundled": true
+}

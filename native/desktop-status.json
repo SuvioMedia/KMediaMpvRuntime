@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "releaseEligible": true,
+  "supportedBuildHosts": [
+    "linux-x86_64",
+    "linux-aarch64",
+    "macos-aarch64",
+    "windows-x86_64"
+  ],
+  "capabilities": {
+    "videoOutput": true,
+    "assSubtitles": true,
+    "audioOutput": true,
+    "networkInput": true,
+    "systemFontDiscovery": false
+  },
+  "expectedRuntimeLibraries": [
+    "mpv",
+    "avcodec",
+    "avfilter",
+    "avformat",
+    "avutil",
+    "swresample",
+    "swscale",
+    "placebo",
+    "ass",
+    "freetype",
+    "fribidi",
+    "harfbuzz"
+  ],
+  "releaseBlockers": []
+}

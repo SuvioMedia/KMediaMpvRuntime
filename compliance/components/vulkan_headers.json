@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 2,
+  "name": "vulkan_headers",
+  "version": "1.4.337+450bd2232225d6c7728a4108055ac2e37cef6475",
+  "upstreamLicenseSummarySpdx": "Apache-2.0",
+  "builtOutputLicenseSpdx": "Apache-2.0",
+  "linkage": "header-only",
+  "sourceUrl": "https://github.com/KhronosGroup/Vulkan-Headers/archive/450bd2232225d6c7728a4108055ac2e37cef6475.tar.gz",
+  "sourceSha256": "26df9841c30806a994e2fdf42f7c87bcb1ced9db9a06033469123939fb3fa075",
+  "sourceArchive": "Vulkan-Headers-450bd2232225d6c7728a4108055ac2e37cef6475.tar.gz",
+  "copyrightFiles": [
+    {"sourcePath": "LICENSE.md", "noticeFile": "vulkan_headers.txt"}
+  ],
+  "buildSystem": "header-only",
+  "buildArguments": [
+    "unpack-to=libplacebo/3rdparty/Vulkan-Headers",
+    "install-headers-to=include"
+  ],
+  "runtimeLibraries": [],
+  "dependencies": [],
+  "bundled": true
+}
