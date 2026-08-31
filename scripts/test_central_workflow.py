@@ -19,7 +19,7 @@ class CentralWorkflowTest(unittest.TestCase):
             self.assertNotIn("LicenseRef-KMediaMpv-Proprietary", workflow)
             self.assertIn("github.triggering_actor == 'Shusek'", workflow)
         self.assertIn("SuvioMedia/KMediaMpvRuntime", workflows[1])
-        self.assertIn("default: USER_MANAGED", workflows[1])
+        self.assertIn("default: AUTOMATIC", workflows[1])
 
     def test_central_bundle_is_exactly_the_two_lgpl_coordinates(self) -> None:
         root = Path(__file__).resolve().parents[1]
