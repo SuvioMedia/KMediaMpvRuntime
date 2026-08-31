@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 2,
+  "name": "fast_float",
+  "version": "8.0.1+1bf70101536d37fa9954cc4f03fd0903d045a9f3",
+  "upstreamLicenseSummarySpdx": "Apache-2.0 OR MIT OR BSL-1.0",
+  "builtOutputLicenseSpdx": "Apache-2.0",
+  "linkage": "header-only",
+  "sourceUrl": "https://github.com/fastfloat/fast_float/archive/1bf70101536d37fa9954cc4f03fd0903d045a9f3.tar.gz",
+  "sourceSha256": "95c7730f3db8bfb8568e26387bed5df5284158c408d2c6411ed8ad4f5a6dc9ae",
+  "sourceArchive": "fast_float-1bf70101536d37fa9954cc4f03fd0903d045a9f3.tar.gz",
+  "copyrightFiles": [
+    {"sourcePath": "LICENSE-APACHE", "noticeFile": "fast_float-apache.txt"},
+    {"sourcePath": "LICENSE-BOOST", "noticeFile": "fast_float-boost.txt"},
+    {"sourcePath": "LICENSE-MIT", "noticeFile": "fast_float-mit.txt"},
+    {"sourcePath": "README.md", "noticeFile": "fast_float-wuffs-readme.txt"}
+  ],
+  "buildSystem": "header-only",
+  "buildArguments": ["unpack-to=libplacebo/3rdparty/fast_float"],
+  "runtimeLibraries": [],
+  "dependencies": [],
+  "bundled": true
+}

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 2,
+  "name": "markupsafe",
+  "version": "3.0.2+28ace20b140d15c083e1cbc163ee6b7778ba098c",
+  "upstreamLicenseSummarySpdx": "BSD-3-Clause",
+  "builtOutputLicenseSpdx": "BSD-3-Clause",
+  "linkage": "build-only",
+  "sourceUrl": "https://github.com/pallets/markupsafe/archive/28ace20b140d15c083e1cbc163ee6b7778ba098c.tar.gz",
+  "sourceSha256": "bead4c1f90f02956a082c6f026237e1e106a00636f4b26c3f16921631eb8737f",
+  "sourceArchive": "markupsafe-28ace20b140d15c083e1cbc163ee6b7778ba098c.tar.gz",
+  "copyrightFiles": [
+    {"sourcePath": "LICENSE.txt", "noticeFile": "markupsafe.txt"}
+  ],
+  "buildSystem": "python-build-tool",
+  "buildArguments": ["unpack-to=libplacebo/3rdparty/markupsafe"],
+  "runtimeLibraries": [],
+  "dependencies": [],
+  "bundled": false
+}

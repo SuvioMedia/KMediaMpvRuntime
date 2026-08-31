@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "artifact": "cc.suviomedia:kmedia-mpv-lgpl-runtime-desktop",
+  "publicationEnabled": true,
+  "releaseEligible": true,
+  "supportedPlatforms": {
+    "linux-x86_64": {
+      "os": "linux",
+      "architecture": "x86_64",
+      "audioBackend": "pulse",
+      "audioSmokeBackend": "pulse",
+      "elfClass": "ELF64",
+      "elfMachine": "Advanced Micro Devices X86-64"
+    },
+    "linux-aarch64": {
+      "os": "linux",
+      "architecture": "aarch64",
+      "audioBackend": "pulse",
+      "audioSmokeBackend": "pulse",
+      "elfClass": "ELF64",
+      "elfMachine": "AArch64"
+    },
+    "macos-aarch64": {
+      "os": "macos",
+      "architecture": "aarch64",
+      "audioBackend": "coreaudio",
+      "audioSmokeBackend": "coreaudio",
+      "machoArchitecture": "arm64"
+    },
+    "windows-x86_64": {
+      "os": "windows",
+      "architecture": "x86_64",
+      "audioBackend": "wasapi",
+      "audioSmokeBackend": "null",
+      "peMachine": "i386:x86-64",
+      "minimumOs": "10.0"
+    }
+  },
+  "toolchain": {
+    "mesonVersion": "1.11.2",
+    "macosDeploymentTarget": "13.0",
+    "linuxPulsePkgConfigMinimum": "1.0",
+    "windowsEnvironment": "UCRT64",
+    "windowsGccPackageVersion": "16.1.0-5",
+    "windowsGccLibrariesPackageVersion": "16.1.0-5",
+    "windowsWinpthreadsPackageVersion": "14.0.0.r190.g96fb1bff7-1",
+    "windowsWinpthreadsSourceRevision": "96fb1bff70864f842fc461a7621aaef7bdee777c"
+  },
+  "componentOverrides": {
+    "linux": {
+      "mpv": {
+        "replace": {
+          "-Dpulse=disabled": "-Dpulse=enabled"
+        },
+        "append": []
+      }
+    },
+    "macos": {
+      "mpv": {
+        "replace": {
+          "-Dcoreaudio=disabled": "-Dcoreaudio=enabled",
+          "-Dgl=disabled": "-Dgl=enabled",
+          "-Dcocoa=disabled": "-Dcocoa=enabled",
+          "-Dvideotoolbox-gl=disabled": "-Dvideotoolbox-gl=enabled",
+          "-Dvideotoolbox-pl=disabled": "-Dvideotoolbox-pl=enabled",
+          "-Dvulkan=disabled": "-Dvulkan=enabled"
+        },
+        "append": [
+          "-Dgl-cocoa=enabled"
+        ]
+      },
+      "libplacebo": {
+        "replace": {
+          "-Dglslang=disabled": "-Dglslang=enabled",
+          "-Dvulkan=disabled": "-Dvulkan=enabled"
+        },
+        "append": [
+          "-Dvk-proc-addr=enabled"
+        ]
+      }
+    },
+    "windows": {
+      "mpv": {
+        "replace": {
+          "-Dwasapi=disabled": "-Dwasapi=enabled",
+          "-Dwin32-threads=disabled": "-Dwin32-threads=enabled"
+        },
+        "append": []
+      },
+      "ffmpeg": {
+        "replace": {},
+        "append": [
+          "--disable-pthreads",
+          "--enable-w32threads",
+          "--extra-ldflags=-no-pthread",
+          "--extra-libs=-Wl,-Bstatic -lwinpthread -Wl,-Bdynamic,--exclude-libs,libwinpthread.a"
+        ]
+      },
+      "libplacebo": {
+        "replace": {},
+        "append": [
+          "-Dc_link_args=-no-pthread -static-libgcc -static-libstdc++ -Wl,--major-os-version,10 -Wl,--minor-os-version,0 -Wl,-Bstatic,-lstdc++,-lwinpthread,-Bdynamic,--exclude-libs,libwinpthread.a",
+          "-Dcpp_link_args=-no-pthread -static-libgcc -static-libstdc++ -Wl,--major-os-version,10 -Wl,--minor-os-version,0 -Wl,-Bstatic,-lstdc++,-lwinpthread,-Bdynamic,--exclude-libs,libwinpthread.a"
+        ]
+      }
+    }
+  },
+  "linuxSymbolVersionCeilings": {
+    "GLIBC": "2.39",
+    "GLIBCXX": "3.4.33",
+    "CXXABI": "1.3.15"
+  },
+  "requiredCapabilities": {
+    "videoOutput": true,
+    "assSubtitles": true,
+    "audioOutput": true,
+    "networkInput": true,
+    "systemFontDiscovery": false
+  },
+  "releaseBlockers": []
+}

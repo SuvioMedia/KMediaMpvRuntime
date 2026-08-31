@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "artifact": "cc.suviomedia:kmedia-mpv-lgpl-runtime-android",
+  "namespace": "cc.suviomedia.kmediampv.runtime.android",
+  "publicationEnabled": true,
+  "releaseEligible": true,
+  "toolchain": {
+    "ndkVersion": "29.0.14206865",
+    "ndkRelease": "r29",
+    "ndkNoticeSha256": "faf0dc52cf6ce9ab09a04b0c074a378dd2565ee1ed9bc1179d83793bcdba012e",
+    "cmakeVersion": "4.1.2",
+    "cmakeReportedVersions": {
+      "darwin-x86_64": "4.1.2-gc33710e",
+      "linux-x86_64": "4.1.2"
+    },
+    "mesonVersion": "1.11.2",
+    "ninjaVersion": "1.12.1",
+    "compileSdk": 37,
+    "minSdk": 28
+  },
+  "abis": {
+    "arm64-v8a": {
+      "clangTriple": "aarch64-linux-android",
+      "ffmpegArch": "aarch64",
+      "ffmpegCpu": "armv8-a",
+      "mesonCpuFamily": "aarch64",
+      "mesonCpu": "armv8-a",
+      "elfClass": 64,
+      "elfMachine": 183
+    },
+    "armeabi-v7a": {
+      "clangTriple": "armv7a-linux-androideabi",
+      "ffmpegArch": "arm",
+      "ffmpegCpu": "armv7-a",
+      "mesonCpuFamily": "arm",
+      "mesonCpu": "armv7-a",
+      "elfClass": 32,
+      "elfMachine": 40
+    }
+  },
+  "runtimeTestedAbis": [
+    "arm64-v8a"
+  ],
+  "runtimeTestedApiLevels": [
+    28,
+    35
+  ],
+  "componentOverrides": {
+    "libplacebo": {
+      "replace": {
+        "-Dvulkan=disabled": "-Dvulkan=enabled",
+        "-Dglslang=disabled": "-Dglslang=enabled"
+      },
+      "append": [
+        "-Dvk-proc-addr=enabled"
+      ]
+    },
+    "mpv": {
+      "replace": {
+        "-Dgl=disabled": "-Dgl=enabled",
+        "-Dvulkan=disabled": "-Dvulkan=enabled",
+        "-Daudiotrack=disabled": "-Daudiotrack=enabled",
+        "-Dandroid-media-ndk=disabled": "-Dandroid-media-ndk=enabled"
+      },
+      "append": [
+        "-Degl-android=enabled"
+      ]
+    }
+  },
+  "runtimeLibraries": [
+    "libkmediampv_mpv.so",
+    "libkmediampv_placebo.so"
+  ],
+  "allowedSystemLibraries": [
+    "libandroid.so",
+    "libc.so",
+    "libdl.so",
+    "libEGL.so",
+    "libGLESv2.so",
+    "liblog.so",
+    "libm.so",
+    "libmediandk.so",
+    "libnativewindow.so",
+    "libvulkan.so",
+    "libkmediaffmpeg_avcodec.so",
+    "libkmediaffmpeg_avfilter.so",
+    "libkmediaffmpeg_avformat.so",
+    "libkmediaffmpeg_avutil.so",
+    "libkmediaffmpeg_swresample.so",
+    "libkmediaffmpeg_swscale.so",
+    "libkmediaffmpeg_ass.so",
+    "libkmediaffmpeg_freetype.so",
+    "libkmediaffmpeg_fribidi.so",
+    "libkmediaffmpeg_harfbuzz.so"
+  ],
+  "forbiddenNeededLibraries": [
+    "libc++_shared.so",
+    "libOpenSLES.so",
+    "libstagefright.so",
+    "libutils.so",
+    "libz.so"
+  ],
+  "requiredCapabilities": {
+    "videoOutput": true,
+    "assSubtitles": true,
+    "audioOutput": true,
+    "networkInput": true,
+    "systemFontDiscovery": false,
+    "hardwareDecode": true,
+    "dynamicHdrOutput": true
+  },
+  "releaseBlockers": []
+}

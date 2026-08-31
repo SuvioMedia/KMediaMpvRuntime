@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 2,
+  "name": "glslang",
+  "version": "15.4.0",
+  "upstreamLicenseSummarySpdx": "BSD-3-Clause",
+  "builtOutputLicenseSpdx": "BSD-3-Clause",
+  "linkage": "build-only",
+  "sourceUrl": "https://github.com/KhronosGroup/glslang/archive/refs/tags/15.4.0.tar.gz",
+  "sourceSha256": "b16c78e7604b9be9f546ee35ad8b6db6f39bbbbfb19e8d038b6fe2ea5bba4ff4",
+  "sourceArchive": "glslang-15.4.0.tar.gz",
+  "copyrightFiles": [
+    {"sourcePath": "LICENSE.txt", "noticeFile": "glslang.txt"}
+  ],
+  "buildSystem": "cmake-static",
+  "buildArguments": [
+    "-DBUILD_SHARED_LIBS=OFF",
+    "-DENABLE_GLSLANG_BINARIES=OFF",
+    "-DENABLE_SPVREMAPPER=OFF",
+    "-DENABLE_OPT=OFF",
+    "-DENABLE_HLSL=OFF",
+    "-DGLSLANG_TESTS=OFF",
+    "-DGLSLANG_ENABLE_INSTALL=ON"
+  ],
+  "runtimeLibraries": [],
+  "dependencies": ["vulkan_headers"],
+  "bundled": false
+}
