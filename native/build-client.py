@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-"""Build only the libmpv/libplacebo client against a KMediaFfmpegRuntime SDK."""
+"""Build the public LGPL libmpv/libplacebo runtime against a KMediaFfmpegRuntime SDK."""
 
 from __future__ import annotations
 
@@ -577,7 +577,7 @@ def write_manifest(
     (output / "manifest.properties").write_bytes(manifest.encode("utf-8"))
 
 
-def package_apple(output: Path, target: str) -> None:
+def package_apple(output: Path, target: str, version: str) -> None:
     frameworks = output / "Frameworks"
     frameworks.mkdir()
     mapping = {
@@ -605,6 +605,7 @@ def package_apple(output: Path, target: str) -> None:
         (framework / "Modules").mkdir()
         binary = framework / name
         shutil.copyfile(output / "runtime" / source_name, binary)
+        binary.chmod(0o755)
         header = f"{name}.h"
         if logical == "mpv":
             for source in sorted((output / "sdk" / target / "include/mpv").glob("*.h")):
@@ -618,7 +619,7 @@ def package_apple(output: Path, target: str) -> None:
             "CFBundleDevelopmentRegion": "en", "CFBundleExecutable": name,
             "CFBundleIdentifier": f"cc.suviomedia.kmediampv.{name.lower()}",
             "CFBundleInfoDictionaryVersion": "6.0", "CFBundleName": name,
-            "CFBundlePackageType": "FMWK", "CFBundleShortVersionString": "0.3.0",
+            "CFBundlePackageType": "FMWK", "CFBundleShortVersionString": version,
             "CFBundleVersion": "1", "MinimumOSVersion": "16.2",
         }
         with (framework / "Info.plist").open("wb") as destination:
@@ -682,7 +683,7 @@ def main() -> int:
         raise ValueError("revision must be a full lowercase Git object ID")
     source_offer = arguments.source_offer or (
         "https://github.com/SuvioMedia/KMediaMpvRuntime/releases/download/"
-        f"v{arguments.version}/kmedia-mpv-{arguments.version}-corresponding-source.tar.gz"
+        f"v{arguments.version}/kmedia-mpv-runtime-{arguments.version}-corresponding-source.tar.gz"
     )
     if not source_offer.startswith("https://") or any(character.isspace() for character in source_offer):
         raise ValueError("source offer must be an HTTPS URL without whitespace")
@@ -754,7 +755,7 @@ def main() -> int:
     shutil.copytree(output / "runtime", sdk / "lib", dirs_exist_ok=True)
     shutil.copyfile(output / "manifest.properties", sdk / "manifest.properties")
     if arguments.target.startswith("ios-"):
-        package_apple(output, arguments.target)
+        package_apple(output, arguments.target, arguments.version)
     evidence = output / "compliance"
     (evidence / "sources").mkdir(parents=True)
     for component in COMPONENTS:

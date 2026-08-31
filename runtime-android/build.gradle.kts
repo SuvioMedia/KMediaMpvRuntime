@@ -52,8 +52,14 @@ plugins {
 val ffmpegRuntimeVersion =
     providers.gradleProperty("kmediaFfmpegRuntimeVersion").orElse("0.1.0-SNAPSHOT").get()
 val nativePayload = providers.gradleProperty("kmediaMpvRuntimeAndroidPayloadDirectory").map(rootProject::file)
+val correspondingSourceArchive = providers.gradleProperty("correspondingSourceArchive").map(rootProject::file)
 val publicationVersionValue = project.version.toString()
 val generatedAssets = layout.buildDirectory.dir("generated/runtimeAssets")
+
+val emptyJavadocJar =
+    tasks.register<Jar>("emptyJavadocJar") {
+        archiveClassifier.set("javadoc")
+    }
 
 extensions.configure<LibraryExtension> {
     namespace = "cc.suviomedia.kmediampv.runtime.android"
@@ -89,11 +95,19 @@ val verifyNativePayload =
 tasks.named("preBuild") { dependsOn(prepareRuntimeAssets, verifyNativePayload) }
 tasks.withType<PublishToMavenRepository>().configureEach {
     dependsOn(verifyNativePayload)
-    doFirst { require(nativePayload.isPresent) { "Publishing requires -PkmediaMpvRuntimeAndroidPayloadDirectory." } }
+    dependsOn(emptyJavadocJar)
+    doFirst {
+        require(nativePayload.isPresent) { "Publishing requires -PkmediaMpvRuntimeAndroidPayloadDirectory." }
+        require(correspondingSourceArchive.isPresent) { "Publishing requires -PcorrespondingSourceArchive." }
+    }
 }
 tasks.withType<PublishToMavenLocal>().configureEach {
     dependsOn(verifyNativePayload)
-    doFirst { require(nativePayload.isPresent) { "Publishing requires -PkmediaMpvRuntimeAndroidPayloadDirectory." } }
+    dependsOn(emptyJavadocJar)
+    doFirst {
+        require(nativePayload.isPresent) { "Publishing requires -PkmediaMpvRuntimeAndroidPayloadDirectory." }
+        require(correspondingSourceArchive.isPresent) { "Publishing requires -PcorrespondingSourceArchive." }
+    }
 }
 tasks.withType<Jar>().matching { it.name.contains("sources", ignoreCase = true) }.configureEach {
     from(rootProject.layout.projectDirectory.dir("native")) { into("native") }
@@ -109,9 +123,17 @@ afterEvaluate {
                 groupId = "cc.suviomedia"
                 artifactId = "kmedia-mpv-lgpl-runtime-android"
                 version = publicationVersionValue
+                artifact(emptyJavadocJar)
+                correspondingSourceArchive.orNull?.let { source ->
+                    artifact(source) {
+                        classifier = "corresponding-source"
+                        extension = "tar.gz"
+                    }
+                }
                 pom {
                     name.set("KMediaMpv LGPL Runtime for Android")
                     description.set("Replaceable LGPL mpv/libplacebo runtime for Android.")
+                    inceptionYear.set("2026")
                     url.set("https://github.com/SuvioMedia/KMediaMpvRuntime")
                     licenses {
                         license {
@@ -121,7 +143,11 @@ afterEvaluate {
                         }
                     }
                     developers { developer { id.set("SuvioMedia"); name.set("SuvioMedia") } }
-                    scm { url.set("https://github.com/SuvioMedia/KMediaMpvRuntime") }
+                    scm {
+                        connection.set("scm:git:https://github.com/SuvioMedia/KMediaMpvRuntime.git")
+                        developerConnection.set("scm:git:ssh://git@github.com/SuvioMedia/KMediaMpvRuntime.git")
+                        url.set("https://github.com/SuvioMedia/KMediaMpvRuntime")
+                    }
                 }
             }
         }
