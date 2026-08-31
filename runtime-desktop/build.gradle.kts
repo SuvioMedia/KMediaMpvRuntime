@@ -64,6 +64,7 @@ plugins {
 val ffmpegRuntimeVersion =
     providers.gradleProperty("kmediaFfmpegRuntimeVersion").orElse("0.1.0-SNAPSHOT").get()
 val nativePayload = providers.gradleProperty("kmediaMpvRuntimeDesktopPayloadDirectory").map(rootProject::file)
+val correspondingSourceArchive = providers.gradleProperty("correspondingSourceArchive").map(rootProject::file)
 val publicationVersionValue = project.version.toString()
 
 java {
@@ -104,11 +105,17 @@ val verifyNativePayload =
 tasks.named("check") { dependsOn(verifyNativePayload) }
 tasks.withType<PublishToMavenRepository>().configureEach {
     dependsOn(verifyNativePayload)
-    doFirst { require(nativePayload.isPresent) { "Publishing requires -PkmediaMpvRuntimeDesktopPayloadDirectory." } }
+    doFirst {
+        require(nativePayload.isPresent) { "Publishing requires -PkmediaMpvRuntimeDesktopPayloadDirectory." }
+        require(correspondingSourceArchive.isPresent) { "Publishing requires -PcorrespondingSourceArchive." }
+    }
 }
 tasks.withType<PublishToMavenLocal>().configureEach {
     dependsOn(verifyNativePayload)
-    doFirst { require(nativePayload.isPresent) { "Publishing requires -PkmediaMpvRuntimeDesktopPayloadDirectory." } }
+    doFirst {
+        require(nativePayload.isPresent) { "Publishing requires -PkmediaMpvRuntimeDesktopPayloadDirectory." }
+        require(correspondingSourceArchive.isPresent) { "Publishing requires -PcorrespondingSourceArchive." }
+    }
 }
 
 publishing {
@@ -118,9 +125,16 @@ publishing {
             groupId = "cc.suviomedia"
             artifactId = "kmedia-mpv-lgpl-runtime-desktop"
             version = publicationVersionValue
+            correspondingSourceArchive.orNull?.let { source ->
+                artifact(source) {
+                    classifier = "corresponding-source"
+                    extension = "tar.gz"
+                }
+            }
             pom {
                 name.set("KMediaMpv LGPL Runtime for Desktop")
                 description.set("Replaceable LGPL mpv/libplacebo runtime for desktop platforms.")
+                inceptionYear.set("2026")
                 url.set("https://github.com/SuvioMedia/KMediaMpvRuntime")
                 licenses {
                     license {
@@ -130,7 +144,11 @@ publishing {
                     }
                 }
                 developers { developer { id.set("SuvioMedia"); name.set("SuvioMedia") } }
-                scm { url.set("https://github.com/SuvioMedia/KMediaMpvRuntime") }
+                scm {
+                    connection.set("scm:git:https://github.com/SuvioMedia/KMediaMpvRuntime.git")
+                    developerConnection.set("scm:git:ssh://git@github.com/SuvioMedia/KMediaMpvRuntime.git")
+                    url.set("https://github.com/SuvioMedia/KMediaMpvRuntime")
+                }
             }
         }
     }

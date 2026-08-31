@@ -64,7 +64,10 @@ def dependencies(path: Path, target: str, readelf: str) -> list[str]:
     if target.startswith(("linux-", "android-")):
         output = subprocess.run([readelf, "-d", path], check=True, text=True, stdout=subprocess.PIPE).stdout
         return re.findall(r"\(NEEDED\).*?\[(.+?)\]", output)
-    output = subprocess.run(["objdump", "-p", path], check=True, text=True, stdout=subprocess.PIPE).stdout
+    objdump = shutil.which("gobjdump") or shutil.which("objdump")
+    if objdump is None:
+        raise FileNotFoundError("GNU-compatible objdump is required to inspect Windows runtimes")
+    output = subprocess.run([objdump, "-p", path], check=True, text=True, stdout=subprocess.PIPE).stdout
     return [line.split("DLL Name:", 1)[1].strip() for line in output.splitlines() if "DLL Name:" in line]
 
 
@@ -171,6 +174,16 @@ def main() -> int:
             output = subprocess.run([readelf, "-h", library], check=True, text=True, stdout=subprocess.PIPE).stdout
             if expected_machine not in output:
                 raise ValueError("ELF client architecture differs from policy")
+    elif arguments.target == "windows-x86_64":
+        objdump = shutil.which("gobjdump") or shutil.which("objdump")
+        if objdump is None:
+            raise FileNotFoundError("GNU-compatible objdump is required to inspect Windows runtimes")
+        for library in runtime.iterdir():
+            output = subprocess.run(
+                [objdump, "-f", library], check=True, text=True, stdout=subprocess.PIPE
+            ).stdout
+            if "pei-x86-64" not in output:
+                raise ValueError("Windows runtime is not PE x86-64")
     if apple:
         libmpv_path = runtime / libmpv
         symbols = subprocess.run(
