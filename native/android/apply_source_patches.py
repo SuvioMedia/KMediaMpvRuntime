@@ -237,8 +237,78 @@ PATCHES: dict[str, tuple[tuple[str, str, str], ...]] = {
             "    sources += files('video/out/vulkan/context_mac.m')\n"
             "endif\n",
             "if features['cocoa'] and features['vulkan']\n"
-            "    sources += files('video/out/vulkan/context_mac.m')\n"
+            "    sources += files('video/out/vulkan/context_mac.m',\n"
+            "                     'video/out/kmedia_metal_interop.m',\n"
+            "                     'video/out/kmedia_metal_processing.m')\n"
             "endif\n",
+        ),
+        (
+            "video/out/vo_gpu_next.c",
+            '#include "config.h"\n',
+            '#include "config.h"\n'
+            '#if HAVE_COCOA && HAVE_VULKAN\n'
+            '#include "kmedia_metal_processing.h"\n'
+            '#endif\n',
+        ),
+        (
+            "video/out/vo_gpu_next.c",
+            "    struct mp_image_params target_params;\n",
+            "    struct mp_image_params target_params;\n"
+            "#if HAVE_COCOA && HAVE_VULKAN\n"
+            "    struct kmp_metal_processing *metal_processing;\n"
+            "    bool metal_processing_was_enabled;\n"
+            "#endif\n",
+        ),
+        (
+            "video/out/vo_gpu_next.c",
+            "    bool cache_frame = will_redraw || frame->still;\n",
+            "    bool processing = false;\n"
+            "#if HAVE_COCOA && HAVE_VULKAN\n"
+            "    processing = kmp_metal_processing_frame(p->metal_processing,\n"
+            "        frame->current ? frame->current->pts : MP_NOPTS_VALUE, frame->frame_id);\n"
+            "    if (processing != p->metal_processing_was_enabled)\n"
+            "        pl_renderer_flush_cache(p->rr);\n"
+            "    p->metal_processing_was_enabled = processing;\n"
+            "#endif\n"
+            "    // Each host invocation belongs to this decoded frame. Mixing/caching\n"
+            "    // would otherwise reuse a previous async result or mislabel its PTS.\n"
+            "    bool cache_frame = !processing && (will_redraw || frame->still);\n",
+        ),
+        (
+            "video/out/vo_gpu_next.c",
+            "    bool can_interpolate = opts->interpolation && frame->display_synced &&\n",
+            "    bool can_interpolate = !processing && opts->interpolation && frame->display_synced &&\n",
+        ),
+        (
+            "video/out/vo_gpu_next.c",
+            "    if (frame->still)\n        params.frame_mixer = NULL;\n",
+            "    if (frame->still || processing)\n        params.frame_mixer = NULL;\n",
+        ),
+        (
+            "video/out/vo_gpu_next.c",
+            "    p->pars = pl_options_alloc(p->pllog);\n",
+            "#if HAVE_COCOA && HAVE_VULKAN\n"
+            "    if (strcmp(p->ra_ctx->fns->name, \"macvk\") == 0)\n"
+            "        p->metal_processing = kmp_metal_processing_create(p->gpu, vo->opts->WinID);\n"
+            "#endif\n"
+            "    p->pars = pl_options_alloc(p->pllog);\n",
+        ),
+        (
+            "video/out/vo_gpu_next.c",
+            "    pars->params.num_hooks = 0;\n    const struct pl_hook *hook;\n",
+            "    pars->params.num_hooks = 0;\n    const struct pl_hook *hook;\n"
+            "#if HAVE_COCOA && HAVE_VULKAN\n"
+            "    if ((hook = kmp_metal_processing_hook(p->metal_processing)))\n"
+            "        MP_TARRAY_APPEND(p, p->hooks, pars->params.num_hooks, hook);\n"
+            "#endif\n",
+        ),
+        (
+            "video/out/vo_gpu_next.c",
+            "    pl_queue_destroy(&p->queue); // destroy this first\n",
+            "#if HAVE_COCOA && HAVE_VULKAN\n"
+            "    kmp_metal_processing_destroy(&p->metal_processing);\n"
+            "#endif\n"
+            "    pl_queue_destroy(&p->queue); // destroy this first\n",
         ),
         (
             "video/out/gpu/context.c",
@@ -374,6 +444,10 @@ PATCHES: dict[str, tuple[tuple[str, str, str], ...]] = {
 
 ADDITIONS: dict[str, tuple[tuple[str, str], ...]] = {
     "mpv": (
+        ("video/out/kmedia_metal_interop.h", "native/mpv-patches/video/out/kmedia_metal_interop.h"),
+        ("video/out/kmedia_metal_interop.m", "native/mpv-patches/video/out/kmedia_metal_interop.m"),
+        ("video/out/kmedia_metal_processing.h", "native/mpv-patches/video/out/kmedia_metal_processing.h"),
+        ("video/out/kmedia_metal_processing.m", "native/mpv-patches/video/out/kmedia_metal_processing.m"),
         (
             "video/out/vulkan/context_ios.m",
             "native/mpv-patches/video/out/vulkan/context_ios.m",
