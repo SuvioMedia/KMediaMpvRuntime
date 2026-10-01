@@ -73,7 +73,9 @@ static bool update_geometry(struct ra_ctx *ctx, int *events)
     p->height = height;
     if (changed && events)
         *events |= VO_EVENT_RESIZE | VO_EVENT_EXPOSE;
-    return !ctx->swapchain || !changed || ra_vk_ctx_resize(ctx, width, height);
+    // Reconfiguration resets vo->dwidth/dheight to the new video size even when
+    // the host layer did not resize. Restore its viewport on every reconfig.
+    return !ctx->swapchain || ra_vk_ctx_resize(ctx, width, height);
 }
 
 static void ios_vk_uninit(struct ra_ctx *ctx)
