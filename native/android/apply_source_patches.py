@@ -237,16 +237,14 @@ PATCHES: dict[str, tuple[tuple[str, str, str], ...]] = {
             "    sources += files('video/out/vulkan/context_mac.m')\n"
             "endif\n",
             "if features['cocoa'] and features['vulkan']\n"
-            "    sources += files('video/out/vulkan/context_mac.m',\n"
-            "                     'video/out/kmedia_metal_interop.m',\n"
-            "                     'video/out/kmedia_metal_processing.m')\n"
+            "    sources += files('video/out/vulkan/context_mac.m')\n"
             "endif\n",
         ),
         (
             "video/out/vo_gpu_next.c",
             '#include "config.h"\n',
             '#include "config.h"\n'
-            '#if HAVE_COCOA && HAVE_VULKAN\n'
+            '#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n'
             '#include "kmedia_metal_processing.h"\n'
             '#endif\n',
         ),
@@ -254,7 +252,7 @@ PATCHES: dict[str, tuple[tuple[str, str, str], ...]] = {
             "video/out/vo_gpu_next.c",
             "    struct mp_image_params target_params;\n",
             "    struct mp_image_params target_params;\n"
-            "#if HAVE_COCOA && HAVE_VULKAN\n"
+            "#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n"
             "    struct kmp_metal_processing *metal_processing;\n"
             "    bool metal_processing_was_enabled;\n"
             "#endif\n",
@@ -263,7 +261,7 @@ PATCHES: dict[str, tuple[tuple[str, str, str], ...]] = {
             "video/out/vo_gpu_next.c",
             "    bool cache_frame = will_redraw || frame->still;\n",
             "    bool processing = false;\n"
-            "#if HAVE_COCOA && HAVE_VULKAN\n"
+            "#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n"
             "    processing = kmp_metal_processing_frame(p->metal_processing,\n"
             "        frame->current ? frame->current->pts : MP_NOPTS_VALUE, frame->frame_id);\n"
             "    if (processing != p->metal_processing_was_enabled)\n"
@@ -287,8 +285,9 @@ PATCHES: dict[str, tuple[tuple[str, str, str], ...]] = {
         (
             "video/out/vo_gpu_next.c",
             "    p->pars = pl_options_alloc(p->pllog);\n",
-            "#if HAVE_COCOA && HAVE_VULKAN\n"
-            "    if (strcmp(p->ra_ctx->fns->name, \"macvk\") == 0)\n"
+            "#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n"
+            "    if (strcmp(p->ra_ctx->fns->name, \"macvk\") == 0 ||\n"
+            "        strcmp(p->ra_ctx->fns->name, \"iosvk\") == 0)\n"
             "        p->metal_processing = kmp_metal_processing_create(p->gpu, vo->opts->WinID);\n"
             "#endif\n"
             "    p->pars = pl_options_alloc(p->pllog);\n",
@@ -297,7 +296,7 @@ PATCHES: dict[str, tuple[tuple[str, str, str], ...]] = {
             "video/out/vo_gpu_next.c",
             "    pars->params.num_hooks = 0;\n    const struct pl_hook *hook;\n",
             "    pars->params.num_hooks = 0;\n    const struct pl_hook *hook;\n"
-            "#if HAVE_COCOA && HAVE_VULKAN\n"
+            "#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n"
             "    if ((hook = kmp_metal_processing_hook(p->metal_processing)))\n"
             "        MP_TARRAY_APPEND(p, p->hooks, pars->params.num_hooks, hook);\n"
             "#endif\n",
@@ -305,7 +304,7 @@ PATCHES: dict[str, tuple[tuple[str, str, str], ...]] = {
         (
             "video/out/vo_gpu_next.c",
             "    pl_queue_destroy(&p->queue); // destroy this first\n",
-            "#if HAVE_COCOA && HAVE_VULKAN\n"
+            "#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n"
             "    kmp_metal_processing_destroy(&p->metal_processing);\n"
             "#endif\n"
             "    pl_queue_destroy(&p->queue); // destroy this first\n",
@@ -373,6 +372,10 @@ PATCHES: dict[str, tuple[tuple[str, str, str], ...]] = {
             "    endif\n"
             "endif\n"
             "features += {'ios-vulkan': ios_vulkan}\n\n"
+            "if features['vulkan'] and (features['cocoa'] or ios_vulkan)\n"
+            "    sources += files('video/out/kmedia_metal_interop.m',\n"
+            "                     'video/out/kmedia_metal_processing.m')\n"
+            "endif\n\n"
             "features += {'vk-khr-display': vulkan.type_name() == 'internal' or\n",
         ),
         (

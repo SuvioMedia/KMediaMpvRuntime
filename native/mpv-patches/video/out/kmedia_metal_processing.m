@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <mpv/client.h>
+#include "config.h"
 #include "kmedia_metal_processing.h"
 #include "kmedia_metal_interop.h"
 
@@ -31,8 +32,14 @@ struct kmp_metal_processing {
     bool encoded;
 };
 
+#if HAVE_COCOA
 MPV_EXPORT int kmediampv_embedded_macvk_processing_api_version(void);
 MPV_EXPORT int kmediampv_embedded_macvk_processing_api_version(void) { return 1; }
+#endif
+#if HAVE_IOS_VULKAN
+MPV_EXPORT int kmediampv_embedded_iosvk_processing_api_version(void);
+MPV_EXPORT int kmediampv_embedded_iosvk_processing_api_version(void) { return 1; }
+#endif
 
 static void *encode(void *opaque, void *command, void *input)
 {

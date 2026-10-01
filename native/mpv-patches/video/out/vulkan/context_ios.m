@@ -22,6 +22,16 @@
 #include "context.h"
 #include "utils.h"
 
+// Optional processing host. The ordinary CAMetalLayer route remains valid.
+@interface CAMetalLayer (KMediaMpvProcessingWakeup)
+- (void)kmediampvSetProcessingWakeup:(void (*)(void *))callback context:(void *)context;
+@end
+
+static void processing_wakeup(void *context)
+{
+    vo_redraw(context);
+}
+
 struct priv {
     struct mpvk_ctx vk;
     CAMetalLayer *layer;
@@ -71,6 +81,8 @@ static void ios_vk_uninit(struct ra_ctx *ctx)
     struct priv *p = ctx->priv;
     if (!p)
         return;
+    if ([p->layer respondsToSelector:@selector(kmediampvSetProcessingWakeup:context:)])
+        [p->layer kmediampvSetProcessingWakeup:NULL context:NULL];
     ra_vk_ctx_uninit(ctx);
     mpvk_uninit(&p->vk);
     [p->layer release];
@@ -116,6 +128,8 @@ static bool ios_vk_init(struct ra_ctx *ctx)
         goto error;
     }
     p->layer = [layer retain];
+    if ([p->layer respondsToSelector:@selector(kmediampvSetProcessingWakeup:context:)])
+        [p->layer kmediampvSetProcessingWakeup:processing_wakeup context:ctx->vo];
     if (!layer_size(p, &p->width, &p->height))
         goto error;
     if (!mpvk_init(vk, ctx, VK_EXT_METAL_SURFACE_EXTENSION_NAME))
