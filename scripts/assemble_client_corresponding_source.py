@@ -28,6 +28,14 @@ def git(root: Path, *arguments: str) -> bytes:
     return subprocess.run(["git", "-C", str(root), *arguments], check=True, stdout=subprocess.PIPE).stdout
 
 
+def require_exact_commit(root: Path, revision: str) -> None:
+    # MSYS2 can expand braces in argv from native Windows Python. Verify the object type
+    # separately rather than passing Git's ^{commit} peeling syntax through that boundary.
+    resolved = git(root, "rev-parse", "--verify", revision).decode("ascii").strip()
+    if resolved != revision or git(root, "cat-file", "-t", revision).strip() != b"commit":
+        raise ValueError("revision does not resolve to the exact commit")
+
+
 def add(archive: tarfile.TarFile, name: str, data: bytes, epoch: int, executable: bool = False) -> None:
     info = tarfile.TarInfo(name)
     info.size = len(data)
@@ -49,9 +57,7 @@ def main() -> int:
     if not SEMVER.fullmatch(arguments.version) or not REVISION.fullmatch(arguments.revision):
         raise ValueError("version or revision is not immutable")
     root = Path(__file__).resolve().parent.parent
-    resolved = git(root, "rev-parse", f"{arguments.revision}^{{commit}}").decode("ascii").strip()
-    if resolved != arguments.revision:
-        raise ValueError("revision does not resolve to the exact commit")
+    require_exact_commit(root, arguments.revision)
     evidence = arguments.evidence.resolve()
     sources = evidence / "sources"
     if not sources.is_dir() or sources.is_symlink():
