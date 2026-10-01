@@ -1,0 +1,192 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+name: Validate native runtime packages
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/build-validation.yml'
+      - '.github/workflows/release.yml'
+      - 'native/**'
+      - 'scripts/**'
+      - 'compliance/**'
+  workflow_dispatch:
+
+# Build the public runtime only; release publication remains in the gated release workflow.
+permissions:
+  contents: read
+
+concurrency:
+  group: runtime-build-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    # These standard hosted runners are used only for this public repository.
+    if: github.repository == 'SuvioMedia/KMediaMpvRuntime' && !github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      revision: ${{ steps.identity.outputs.revision }}
+      epoch: ${{ steps.identity.outputs.epoch }}
+      version: ${{ steps.identity.outputs.version }}
+      runtime_version: ${{ steps.identity.outputs.runtime_version }}
+      runtime_id: ${{ steps.identity.outputs.runtime_id }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        with:
+          distribution: temurin
+          java-version: "25"
+      - id: identity
+        name: Bind the validation package to this source and the released shared SDK
+        run: |
+          revision="$(git rev-parse HEAD)"
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+          echo "epoch=$(git show -s --format=%ct HEAD)" >> "$GITHUB_OUTPUT"
+          echo "version=0.1.0-validation.${revision:0:12}" >> "$GITHUB_OUTPUT"
+          echo "runtime_version=0.1.0-rc.11" >> "$GITHUB_OUTPUT"
+          echo "runtime_id=kmediaffmpeg-9.0.1-ass-0.17.5-cbb827ab5d596906" >> "$GITHUB_OUTPUT"
+          python3 native/component_manifest.py --directory compliance/components validate
+          python3 -m unittest discover -s scripts -p 'test_*.py' -v
+          ./gradlew --no-daemon verifyPublicBoundary
+      - name: Fetch and hash-verify the closed public source inventory
+        run: python3 -B scripts/fetch_source_archives.py --output "$RUNNER_TEMP/source-archives"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: pinned-native-sources
+          path: ${{ runner.temp }}/source-archives
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  runtime:
+    needs: prepare
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: linux-x86_64, runner: ubuntu-24.04, shell: bash }
+          - { target: linux-aarch64, runner: ubuntu-24.04-arm, shell: bash }
+          - { target: macos-aarch64, runner: macos-15, shell: bash }
+          - { target: windows-x86_64, runner: windows-2022, shell: 'msys2 {0}' }
+          - { target: android-arm64-v8a, runner: ubuntu-24.04, shell: bash }
+          - { target: android-armeabi-v7a, runner: ubuntu-24.04, shell: bash }
+          - { target: ios-arm64, runner: macos-15, shell: bash }
+          - { target: ios-simulator-arm64, runner: macos-15, shell: bash }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    steps:
+      - name: Preserve LF source bytes on Windows
+        if: matrix.target == 'windows-x86_64'
+        shell: pwsh
+        run: git config --global core.autocrlf input
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ needs.prepare.outputs.revision }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: pinned-native-sources
+          path: ${{ runner.temp }}/source-archives
+      - name: Install Linux and Android tools
+        if: startsWith(matrix.target, 'linux-') || startsWith(matrix.target, 'android-')
+        run: |
+          sudo apt-get update
+          packages=(ninja-build patchelf pkg-config python3-venv)
+          if [[ '${{ matrix.target }}' == linux-* ]]; then packages+=(libpulse-dev); fi
+          sudo apt-get install --yes "${packages[@]}"
+          if [[ '${{ matrix.target }}' == android-* ]]; then
+            /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager 'ndk;29.0.14206865' 'cmake;4.1.2'
+          fi
+          python3 -m venv "$RUNNER_TEMP/meson"
+          "$RUNNER_TEMP/meson/bin/pip" install meson==1.11.2
+          echo "$RUNNER_TEMP/meson/bin" >> "$GITHUB_PATH"
+      - name: Install Apple tools
+        if: startsWith(matrix.target, 'macos-') || startsWith(matrix.target, 'ios-')
+        run: |
+          test "$(uname -m)" = arm64
+          brew install cmake ninja pkg-config
+          python3 -m venv "$RUNNER_TEMP/meson"
+          "$RUNNER_TEMP/meson/bin/pip" install meson==1.11.2
+          echo "$RUNNER_TEMP/meson/bin" >> "$GITHUB_PATH"
+      - name: Install Windows UCRT64 tools
+        if: matrix.target == 'windows-x86_64'
+        uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2.32.0
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            base-devel
+            git
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-python-pip
+      - name: Install pinned Meson on Windows
+        if: matrix.target == 'windows-x86_64'
+        run: python -m pip install meson==1.11.2
+      - name: Download and hash-bind the public FFmpeg runtime SDK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUNTIME_VERSION: ${{ needs.prepare.outputs.runtime_version }}
+        run: |
+          github_cli=gh
+          runner_temp="$RUNNER_TEMP"
+          if [[ '${{ matrix.target }}' == windows-* ]]; then
+            github_cli='/c/Program Files/GitHub CLI/gh.exe'
+            runner_temp="$(cygpath -u "$RUNNER_TEMP")"
+          fi
+          name="kmedia-ffmpeg-runtime-$RUNTIME_VERSION-${{ matrix.target }}-sdk.tar.gz"
+          mkdir "$runner_temp/runtime"
+          "$github_cli" release download "v$RUNTIME_VERSION" -R SuvioMedia/KMediaFfmpegRuntime \
+            --dir "$runner_temp/runtime" --pattern "$name" --pattern SHA256SUMS
+          matches="$(awk -v p="$name" '$2 == p || $2 == "./" p {print $1}' "$runner_temp/runtime/SHA256SUMS")"
+          test "$(printf '%s\n' "$matches" | sed '/^$/d' | wc -l)" -eq 1
+          [[ "$matches" =~ ^[0-9a-f]{64}$ ]]
+          actual="$(python3 -c 'import hashlib,sys; h=hashlib.sha256(); f=open(sys.argv[1],"rb"); [h.update(b) for b in iter(lambda:f.read(1048576),b"")]; print(h.hexdigest())' "$runner_temp/runtime/$name")"
+          test "$matches" = "$actual"
+          tar -xzf "$runner_temp/runtime/$name" -C "$runner_temp/runtime"
+          test "$(cat "$runner_temp/runtime/runtime-id.txt")" = '${{ needs.prepare.outputs.runtime_id }}'
+      - name: Build and inspect one public MPV runtime
+        run: |
+          runner_temp="$RUNNER_TEMP"
+          if [[ '${{ matrix.target }}' == windows-* ]]; then runner_temp="$(cygpath -u "$RUNNER_TEMP")"; fi
+          args=()
+          if [[ '${{ matrix.target }}' == android-* ]]; then
+            args+=(--ndk /usr/local/lib/android/sdk/ndk/29.0.14206865 --cmake /usr/local/lib/android/sdk/cmake/4.1.2/bin/cmake)
+          fi
+          python3 -B native/build-client.py \
+            --target '${{ matrix.target }}' \
+            --runtime-sdk "$runner_temp/runtime/sdk/${{ matrix.target }}" \
+            --runtime-version '${{ needs.prepare.outputs.runtime_version }}' \
+            --version '${{ needs.prepare.outputs.version }}' --revision '${{ needs.prepare.outputs.revision }}' \
+            --source-archives "$runner_temp/source-archives" \
+            --work "$runner_temp/runtime-work" --output "$runner_temp/runtime-output" \
+            "${args[@]}"
+      - name: Assemble corresponding source for this exact validation build
+        run: |
+          runner_temp="$RUNNER_TEMP"
+          if [[ '${{ matrix.target }}' == windows-* ]]; then runner_temp="$(cygpath -u "$RUNNER_TEMP")"; fi
+          python3 -B scripts/assemble_client_corresponding_source.py \
+            --evidence "$runner_temp/runtime-output/compliance" \
+            --version '${{ needs.prepare.outputs.version }}' \
+            --revision '${{ needs.prepare.outputs.revision }}' \
+            --epoch '${{ needs.prepare.outputs.epoch }}' \
+            --output "$runner_temp/runtime-output/corresponding-source.tar.gz"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: validation-runtime-${{ matrix.target }}
+          path: ${{ runner.temp }}/runtime-output
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+

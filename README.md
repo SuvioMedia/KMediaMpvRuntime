@@ -21,6 +21,14 @@ this public repository.
 
 Run `./gradlew verifyAll` to validate the project.
 
+Pull requests affecting native sources also run `build-validation.yml` against the same eight
+target recipes as the release workflow. The build binds the exact PR revision to the released
+FFmpeg rc.11 SDK identity and verified upstream archives, then validates each native package and
+assembles its corresponding-source archive. One-day Actions artifacts retain these review builds
+under commit-specific `0.1.0-validation.<revision>` versions. They are staging evidence; the gated
+release workflow still controls publication and device-matrix acceptance. This validation uses
+standard hosted runners only in the public runtime repository.
+
 ## Local macvk processing validation
 
 The optional `kmediampv_embedded_macvk_processing_api_version() == 1` capability lets
