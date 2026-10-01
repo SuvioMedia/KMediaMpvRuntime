@@ -22,6 +22,7 @@ struct fixture {
     bool invalid;
     bool capture_input;
     id<MTLBuffer> captured_input;
+    const struct pl_color_space *source_color;
 };
 
 static pl_tex get_texture(void *opaque, int width, int height)
@@ -94,7 +95,7 @@ static struct pl_hook_res process(struct fixture *f, const float rgba[4],
             .tex = input, .color = color, .components = 4,
             .repr = { .sys = PL_COLOR_SYSTEM_RGB, .levels = PL_COLOR_LEVELS_FULL },
             .rect = {0, 0, width, height},
-        }, encode, f);
+        }, f->source_color ? f->source_color : &color, encode, f);
     pl_tex_destroy(f->gpu, &input);
     return result;
 }
@@ -140,6 +141,19 @@ static float pq_encode(float nits)
     const double c1 = 3424.0 / 4096, c2 = 2413.0 / 128, c3 = 2392.0 / 128;
     double y = pow(nits / 10000.0, m1);
     return pow((c1 + c2 * y) / (1 + c3 * y), m2);
+}
+
+// Independently encoded BT.2100 reference at 1000 nits, before display adaptation.
+static void hlg_encode(const float nits[4], float signal[4])
+{
+    double y = (0.2627 * nits[0] + 0.6780 * nits[1] + 0.0593 * nits[2]) / 1000;
+    double factor = y > 0 ? pow(y, (1.0 - 1.2) / 1.2) / 1000 : 0;
+    for (int c = 0; c < 3; c++) {
+        double scene = nits[c] * factor;
+        signal[c] = scene <= 1.0 / 12 ? sqrt(3 * scene)
+            : 0.17883277 * log(12 * scene - 0.28466892) + 0.55991073;
+    }
+    signal[3] = nits[3];
 }
 
 int main(void)
@@ -208,8 +222,53 @@ int main(void)
         result = process(&f, (float[4]){value, value, value, 1}, pq, 64, 48);
         check(&f, result.tex, (float[4]){value, value, value, 1}, "PQ 1000 nits");
         check_input(&f, (float[4]){10, 10, 10, 1});
-        f.capture_input = false;
         clear_results(&f);
+
+        struct pl_color_space hlg = linear;
+        hlg.transfer = PL_COLOR_TRC_HLG;
+        f.source_color = &hlg;
+        const float hlg_nits[][4] = {
+            {100, 100, 100, 1}, {1000, 1000, 1000, 1},
+            {1000, 100, 30, 0.375}, {20, 600, 80, 1},
+        };
+        const float target_peaks[] = {400, 1000, 4000};
+        const float target_blacks[] = {0.001, 0.203, 1};
+        const float gains[] = {1, 0.5, 4};
+        for (int target = 0; target < 3; target++) {
+            struct pl_color_space adapted = hlg;
+            adapted.hdr.min_luma = target_blacks[target];
+            adapted.hdr.max_luma = target_peaks[target];
+            for (int sample = 0; sample < 4; sample++) {
+                float signal[4], expected[4];
+                hlg_encode(hlg_nits[sample], signal);
+                for (int c = 0; c < 4; c++)
+                    expected[c] = c == 3 ? hlg_nits[sample][c] : hlg_nits[sample][c] / 100;
+                for (int gain = 0; gain < 3; gain++) {
+                    float output_nits[4], output_signal[4];
+                    f.factor = gains[gain];
+                    for (int c = 0; c < 4; c++)
+                        output_nits[c] = hlg_nits[sample][c] * (c == 3 ? 1 : f.factor);
+                    hlg_encode(output_nits, output_signal);
+                    result = process(&f, signal, adapted, 64, 48);
+                    check(&f, result.tex, output_signal, "HLG exposure precedes display adaptation");
+                    check_input(&f, expected);
+                    assert(result.color.hdr.min_luma == adapted.hdr.min_luma);
+                    assert(result.color.hdr.max_luma == adapted.hdr.max_luma);
+                    clear_results(&f);
+                }
+            }
+        }
+        f.factor = 1;
+        hlg.hdr.max_luma = 2000;
+        struct pl_color_space adapted = hlg;
+        adapted.hdr.max_luma = 400;
+        adapted.hdr.min_luma = 0.203;
+        result = process(&f, (float[4]){1, 1, 1, 1}, adapted, 64, 48);
+        check(&f, result.tex, (float[4]){1, 1, 1, 1}, "HLG explicit source peak round trip");
+        check_input(&f, (float[4]){20, 20, 20, 1});
+        clear_results(&f);
+        f.source_color = NULL;
+        f.capture_input = false;
 
         // Queue frames before reading any result. Alternate both pool sizes
         // and colors, and verify older outputs after the shared pool is reused.
@@ -252,7 +311,7 @@ int main(void)
         pl_dispatch_destroy(&f.dispatch);
         pl_vulkan_destroy(&vk);
         pl_log_destroy(&log);
-        puts("PASS: Metal/Vulkan GPU handoff; SDR/PQ/extended linear; alpha; 288 queued resize frames; bypass; teardown");
+        puts("PASS: Metal/Vulkan GPU handoff; SDR/PQ/extended linear; 37 HLG source/display cases; alpha; 288 queued resize frames; bypass; teardown");
     }
     return 0;
 }

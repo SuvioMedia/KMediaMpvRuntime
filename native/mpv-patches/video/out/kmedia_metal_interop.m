@@ -227,11 +227,27 @@ static bool convert_gamut(pl_shader sh, enum pl_color_primaries from, enum pl_co
     });
 }
 
-static bool convert_input(struct kmp_metal_interop *p, const struct pl_hook_params *hp)
+static struct pl_color_space processing_color(const struct pl_hook_params *hp,
+                                              const struct pl_color_space *source)
+{
+    struct pl_color_space color = hp->color;
+    if (source && source->transfer == PL_COLOR_TRC_HLG && color.transfer == PL_COLOR_TRC_HLG) {
+        // libplacebo adapts HLG's black/peak to the target before dispatching RGB hooks.
+        // Effects need source-referred nits; target adaptation belongs after processing.
+        // A positive absolute-black sentinel prevents nominal-luma inference from substituting
+        // the target black. Unspecified source peak retains libplacebo's 1000-nit HLG default.
+        color.hdr.min_luma = source->hdr.min_luma > 0 ? source->hdr.min_luma : PL_COLOR_HDR_BLACK;
+        color.hdr.max_luma = source->hdr.max_luma;
+    }
+    return color;
+}
+
+static bool convert_input(struct kmp_metal_interop *p, const struct pl_hook_params *hp,
+                          const struct pl_color_space *color)
 {
     pl_shader sh = pl_dispatch_begin(hp->dispatch);
     bool ok = pl_shader_sample_direct(sh, pl_sample_src(.tex = hp->tex));
-    pl_shader_linearize(sh, &hp->color);
+    pl_shader_linearize(sh, color);
     ok &= convert_gamut(sh, hp->color.primaries, PL_COLOR_PRIM_BT_2020);
     ok &= pl_shader_custom(sh, &(struct pl_custom_shader) {
         .input = PL_SHADER_SIG_COLOR, .output = PL_SHADER_SIG_COLOR,
@@ -246,7 +262,8 @@ static bool convert_input(struct kmp_metal_interop *p, const struct pl_hook_para
 }
 
 struct pl_hook_res kmp_metal_interop_process(struct kmp_metal_interop *p,
-    const struct pl_hook_params *hp, kmp_metal_encode_fn encode, void *opaque)
+    const struct pl_hook_params *hp, const struct pl_color_space *source_color,
+    kmp_metal_encode_fn encode, void *opaque)
 {
     struct pl_hook_res bypass = {0};
     if (!p || !hp || hp->gpu != p->gpu || !hp->tex || !hp->dispatch ||
@@ -254,8 +271,9 @@ struct pl_hook_res kmp_metal_interop_process(struct kmp_metal_interop *p,
         atomic_load_explicit(&p->status->failed, memory_order_acquire))
         return bypass;
     @autoreleasepool {
+        struct pl_color_space signal_color = processing_color(hp, source_color);
         if (!ensure_texture(p, &p->input, hp->tex->params.w, hp->tex->params.h) ||
-            !convert_input(p, hp))
+            !convert_input(p, hp, &signal_color))
             return bypass;
         id<MTLCommandBuffer> command = [p->queue commandBuffer];
         if (!command || !hold(p, p->input.texture))
@@ -327,7 +345,7 @@ struct pl_hook_res kmp_metal_interop_process(struct kmp_metal_interop *p,
         // libplacebo 7's later color pass assumes the original frame primaries
         // and transfer even though pl_hook_res exposes mutable color metadata.
         // Restore that representation before returning to the RGB stage.
-        pl_shader_delinearize(sh, &hp->color);
+        pl_shader_delinearize(sh, &signal_color);
         if (!pl_dispatch_finish(hp->dispatch, pl_dispatch_params(.shader = &sh, .target = output)))
             return bypass;
         pl_rect2df rect = hp->rect;

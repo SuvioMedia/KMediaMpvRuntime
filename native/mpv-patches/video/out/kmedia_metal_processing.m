@@ -27,6 +27,7 @@ struct kmp_metal_processing {
     struct pl_hook hook;
     double pts;
     uint64_t frame_id;
+    struct pl_color_space source_color;
     bool enabled;
     bool attempted;
     bool encoded;
@@ -71,7 +72,7 @@ static struct pl_hook_res process(void *opaque, const struct pl_hook_params *par
             targetHeight:abs(pl_rect_h(params->dst_rect))])
             return (struct pl_hook_res){0};
         p->encoded = false;
-        struct pl_hook_res result = kmp_metal_interop_process(p->interop, params, encode, p);
+        struct pl_hook_res result = kmp_metal_interop_process(p->interop, params, &p->source_color, encode, p);
         if (result.output == PL_HOOK_SIG_NONE && p->encoded)
             [p->host kmediampvProcessingFailed];
         return result;
@@ -118,12 +119,14 @@ const struct pl_hook *kmp_metal_processing_hook(struct kmp_metal_processing *p)
     return p ? &p->hook : NULL;
 }
 
-bool kmp_metal_processing_frame(struct kmp_metal_processing *p, double pts, uint64_t frame_id)
+bool kmp_metal_processing_frame(struct kmp_metal_processing *p, double pts, uint64_t frame_id,
+                               const struct pl_color_space *source_color)
 {
     if (!p)
         return false;
     p->pts = pts;
     p->frame_id = frame_id;
-    p->enabled = isfinite(pts) && pts > -1e10 && [p->host kmediampvProcessingEnabled];
+    p->source_color = source_color ? *source_color : (struct pl_color_space){0};
+    p->enabled = source_color && isfinite(pts) && pts > -1e10 && [p->host kmediampvProcessingEnabled];
     return p->enabled;
 }

@@ -20,8 +20,9 @@ typedef void *(*kmp_metal_encode_fn)(void *opaque, void *command_buffer, void *i
 
 // GPU-only handoff. Returns a renderer-owned texture or PL_HOOK_SIG_NONE on
 // failure/bypass. No CPU pixel copies or per-frame waitUntilCompleted calls.
+// source_color is the decoded frame's color before libplacebo's display inference.
 struct pl_hook_res kmp_metal_interop_process(
     struct kmp_metal_interop *context, const struct pl_hook_params *params,
-    kmp_metal_encode_fn encode, void *opaque);
+    const struct pl_color_space *source_color, kmp_metal_encode_fn encode, void *opaque);
 
 #endif
