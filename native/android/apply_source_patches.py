@@ -25,6 +25,15 @@ REPLACEMENTS: dict[str, tuple[tuple[str, str, str], ...]] = {
 
 PATCHES: dict[str, tuple[tuple[str, str, str], ...]] = {
     "libplacebo": (
+        (
+            "src/vulkan/command.c",
+            "    if (vk->driver_props.driverID == VK_DRIVER_ID_MOLTENVK) {\n",
+            "    // Android GFXStream forwards MoltenVK but reports MESA_LLVMPIPE as its ID.\n"
+            "    // Keep the upstream completion-fence workaround for this known driver chain.\n"
+            "    // The render-only regression reproduces stale downloads without this check.\n"
+            "    if (vk->driver_props.driverID == VK_DRIVER_ID_MOLTENVK ||\n"
+            "        strcmp(vk->driver_props.driverName, \"gfxstream (MoltenVK)\") == 0) {\n",
+        ),
         ("src/meson.build", "lib = library('placebo', sources,", "lib = library('kmediampv_placebo', sources,"),
         ("src/meson.build", "  soversion: apiver,\n", ""),
         (
@@ -446,8 +455,94 @@ PATCHES: dict[str, tuple[tuple[str, str, str], ...]] = {
 }
 
 
+# Optional Android Vulkan host processing, before scaling and OSD.
+PATCHES["mpv"] += (('options/options.h',
+  '    int64_t WinID;\n',
+  '    int64_t WinID;\n    int64_t kmedia_vulkan_processing_id;\n'),
+ ('options/options.c',
+  '    {"wid", OPT_INT64(WinID), .flags = UPDATE_VO},\n',
+  '    {"wid", OPT_INT64(WinID), .flags = UPDATE_VO},\n'
+  '    {"kmedia-vulkan-processing-id", OPT_INT64(kmedia_vulkan_processing_id), .flags = UPDATE_VO},\n'),
+ ('meson.build',
+  "if features['vulkan'] and features['android']\n",
+  "if features['vulkan'] and features['android']\n"
+  "    sources += files('video/out/kmedia_vulkan_interop.c', 'video/out/kmedia_vulkan_processing.c')\n"),
+ ('meson.build',
+  "    install_headers(headers, subdir: 'mpv')\n",
+  "    install_headers(headers, subdir: 'mpv')\n"
+  "    install_headers('video/out/kmedia_vulkan_api.h', subdir: 'mpv')\n"),
+ ('video/out/vo_gpu_next.c',
+  '#include "config.h"\n',
+  '#include "config.h"\n#if HAVE_ANDROID && HAVE_VULKAN\n#include "kmedia_vulkan_processing.h"\n#endif\n'),
+ ('video/out/vo_gpu_next.c',
+  '    struct mp_image_params target_params;\n',
+  '    struct mp_image_params target_params;\n'
+  '#if HAVE_ANDROID && HAVE_VULKAN\n'
+  '    struct kmp_vulkan_processing *vulkan_processing;\n'
+  '    bool vulkan_processing_was_enabled;\n'
+  '#endif\n'),
+ ('video/out/vo_gpu_next.c',
+  '    // Each host invocation belongs to this decoded frame.',
+  '#if HAVE_ANDROID && HAVE_VULKAN\n'
+  '    bool vk_processing = kmp_vulkan_processing_frame(p->vulkan_processing,\n'
+  '        frame->current ? frame->current->pts : MP_NOPTS_VALUE, frame->frame_id,\n'
+  '        frame->current ? &frame->current->params.color : NULL);\n'
+  '    if (vk_processing != p->vulkan_processing_was_enabled)\n'
+  '        pl_renderer_flush_cache(p->rr);\n'
+  '    p->vulkan_processing_was_enabled = vk_processing;\n'
+  '    processing |= vk_processing;\n'
+  '#endif\n'
+  '    // Each host invocation belongs to this decoded frame.'),
+ ('video/out/vo_gpu_next.c',
+  '    p->pars = pl_options_alloc(p->pllog);\n',
+  '#if HAVE_ANDROID && HAVE_VULKAN\n'
+  '    if (strcmp(p->ra_ctx->fns->name, "androidvk") == 0)\n'
+  '        p->vulkan_processing = kmp_vulkan_processing_create(p->gpu, '
+  'vo->opts->kmedia_vulkan_processing_id, vo);\n'
+  '#endif\n'
+  '    p->pars = pl_options_alloc(p->pllog);\n'),
+ ('video/out/vo_gpu_next.c',
+  '    pars->params.num_hooks = 0;\n    const struct pl_hook *hook;\n',
+  '    pars->params.num_hooks = 0;\n'
+  '    const struct pl_hook *hook;\n'
+  '#if HAVE_ANDROID && HAVE_VULKAN\n'
+  '    if ((hook = kmp_vulkan_processing_hook(p->vulkan_processing)))\n'
+  '        MP_TARRAY_APPEND(p, p->hooks, pars->params.num_hooks, hook);\n'
+  '#endif\n'),
+ ('video/out/vo_gpu_next.c',
+  '    pl_queue_destroy(&p->queue); // destroy this first\n',
+  '#if HAVE_ANDROID && HAVE_VULKAN\n'
+  '    kmp_vulkan_processing_destroy(&p->vulkan_processing);\n'
+  '#endif\n'
+  '    pl_queue_destroy(&p->queue); // destroy this first\n'),
+ ('video/out/vo_gpu_next.c',
+  '    case VOCTRL_RESET:\n',
+  '    case VOCTRL_RESET:\n'
+  '#if HAVE_ANDROID && HAVE_VULKAN\n'
+  '        kmp_vulkan_processing_reset(p->vulkan_processing);\n'
+  '#endif\n'),
+ ('video/out/vo_gpu_next.c',
+  '    switch (request) {\n',
+  '#if HAVE_ANDROID && HAVE_VULKAN\n'
+  '    kmp_vulkan_processing_poll(p->vulkan_processing);\n'
+  '#endif\n'
+  '    switch (request) {\n'),
+ ('video/out/vo_gpu_next.c',
+  '    if (p->ra_ctx && p->ra_ctx->fns->wait_events) {\n',
+  '#if HAVE_ANDROID && HAVE_VULKAN\n'
+  '    if (kmp_vulkan_processing_pending(p->vulkan_processing))\n'
+  '        until_time_ns = MPMIN(until_time_ns, mp_time_ns() + 4000000);\n'
+  '#endif\n'
+  '    if (p->ra_ctx && p->ra_ctx->fns->wait_events) {\n'))
+
+
 ADDITIONS: dict[str, tuple[tuple[str, str], ...]] = {
     "mpv": (
+        ("video/out/kmedia_vulkan_api.h", "native/mpv-patches/video/out/kmedia_vulkan_api.h"),
+        ("video/out/kmedia_vulkan_interop.h", "native/mpv-patches/video/out/kmedia_vulkan_interop.h"),
+        ("video/out/kmedia_vulkan_interop.c", "native/mpv-patches/video/out/kmedia_vulkan_interop.c"),
+        ("video/out/kmedia_vulkan_processing.h", "native/mpv-patches/video/out/kmedia_vulkan_processing.h"),
+        ("video/out/kmedia_vulkan_processing.c", "native/mpv-patches/video/out/kmedia_vulkan_processing.c"),
         ("video/out/kmedia_metal_interop.h", "native/mpv-patches/video/out/kmedia_metal_interop.h"),
         ("video/out/kmedia_metal_interop.m", "native/mpv-patches/video/out/kmedia_metal_interop.m"),
         ("video/out/kmedia_metal_processing.h", "native/mpv-patches/video/out/kmedia_metal_processing.h"),
