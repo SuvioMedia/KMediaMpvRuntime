@@ -46,4 +46,9 @@ MPV_EXPORT int64_t kmediampv_vulkan_processing_register(const struct kmp_vk_call
 MPV_EXPORT void kmediampv_vulkan_processing_unregister(int64_t id);
 /* Thread-safe, coalesced native redraw. The host calls this when a graph is ready/disabled. */
 MPV_EXPORT void kmediampv_vulkan_processing_request_frame(int64_t id);
+/* Optional ABI 1 extension. When required, a missing processor output produces opaque black
+ * instead of bypassing to the source. This includes disabled callbacks and seek barriers.
+ * Defaults to false. Thread-safe; returns 0 for a live registration, -1 otherwise.
+ * Probe this symbol before enabling host-owned geometry; old ABI 1 runtimes lack it. */
+MPV_EXPORT int kmediampv_vulkan_processing_set_output_required(int64_t id, bool required);
 #endif

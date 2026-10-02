@@ -37,6 +37,11 @@ if args.android_ndk:
     compiler = str(args.android_ndk / 'toolchains/llvm/prebuilt' / host / 'bin/aarch64-linux-android28-clang')
     link = ['-Wl,-z,max-page-size=16384', '-Wl,-rpath,$ORIGIN']
 loader = '-lkmediampv_moltenvk' if sys.platform == 'darwin' and not args.android_ndk else '-lvulkan'
+subprocess.run([compiler, '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-pthread',
+    '-I', str(args.include.resolve()), '-I', str(root / 'native/tests/stubs'),
+    str(root / 'native/tests/vulkan_processing.c'),
+    str(root / 'native/mpv-patches/video/out/kmedia_vulkan_processing.c'),
+    '-lm', *link, '-o', str(out / 'registry')], check=True)
 subprocess.run([compiler, '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-I', str(args.include.resolve()),
     '-I', str(out), str(root / 'native/tests/vulkan_interop.c'),
     str(root / 'native/mpv-patches/video/out/kmedia_vulkan_interop.c'),
@@ -48,14 +53,16 @@ if args.android_ndk:
     adb = [str(args.adb), '-s', args.serial]
     remote = '/data/local/tmp/kmedia-vulkan-interop'
     subprocess.run(adb + ['shell', 'mkdir', '-p', remote], check=True)
-    for name in ('fixture', library.name):
+    for name in ('fixture', 'registry', library.name):
         subprocess.run(adb + ['push', str(out / name), remote + '/' + name], check=True)
     for iteration in range(args.repeat):
         print(f'Iteration {iteration + 1}/{args.repeat}', flush=True)
+        subprocess.run(adb + ['shell', remote + '/registry'], check=True)
         for mode in (' --render-baseline', ''):
             subprocess.run(adb + ['shell', 'cd ' + remote + ' && ./fixture' + mode], check=True)
 else:
     for iteration in range(args.repeat):
         print(f'Iteration {iteration + 1}/{args.repeat}', flush=True)
+        subprocess.run([str(out / 'registry')], check=True)
         subprocess.run([str(out / 'fixture'), '--render-baseline'], check=True)
         subprocess.run([str(out / 'fixture')], check=True)

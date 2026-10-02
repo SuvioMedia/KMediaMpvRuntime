@@ -255,6 +255,27 @@ static void clear_results(struct fixture *f)
     for (int i = 0; i < f->count; ++i) pl_tex_destroy(f->gpu, &f->results[i]);
     f->count = 0;
 }
+static void check_blank(struct fixture *f, struct pl_color_space color, int width, int height)
+{
+    pl_dispatch_reset_frame(f->dispatch);
+    pl_tex input = get_texture(f, width, height);
+    struct pl_hook_params hp = {.gpu = f->gpu, .dispatch = f->dispatch, .tex = input,
+        // Intentionally no get_tex: the blank fallback must not allocate an intermediate.
+        .color = color, .components = 4,
+        .repr = {.sys = PL_COLOR_SYSTEM_RGB, .levels = PL_COLOR_LEVELS_FULL,
+            .alpha = PL_ALPHA_PREMULTIPLIED},
+        .rect = {2, 3, width - 1, height - 2}};
+    struct pl_hook_res result = kmp_vulkan_interop_blank(&hp);
+    assert(!result.failed && result.output == PL_HOOK_SIG_COLOR && result.sh);
+    assert(result.components == hp.components && pl_color_space_equal(&result.color, &hp.color));
+    assert(pl_color_repr_equal(&result.repr, &hp.repr));
+    assert(result.rect.x0 == 2 && result.rect.y0 == 3 &&
+           result.rect.x1 == width - 1 && result.rect.y1 == height - 2);
+    pl_tex output = get_texture(f, width, height);
+    assert(pl_dispatch_finish(f->dispatch, pl_dispatch_params(.shader = &result.sh, .target = output)));
+    check(f, output, (float[4]){0, 0, 0, 1}, "required output opaque black");
+    clear_results(f);
+}
 static void check_input(struct fixture *f, const float expected[4])
 {
     for (int c = 0; c < 4; ++c) {
@@ -343,6 +364,13 @@ int main(int argc, char **argv)
         .primaries = PL_COLOR_PRIM_BT_2020, .transfer = PL_COLOR_TRC_LINEAR,
         .hdr = {.min_luma = 0, .max_luma = 1000},
     };
+    check_blank(&f, linear, 64, 48);
+    check_blank(&f, (struct pl_color_space){.primaries = PL_COLOR_PRIM_BT_709,
+        .transfer = PL_COLOR_TRC_BT_1886}, 127, 71);
+    check_blank(&f, (struct pl_color_space){.primaries = PL_COLOR_PRIM_BT_2020,
+        .transfer = PL_COLOR_TRC_PQ, .hdr = {.max_luma = 1000}}, 96, 48);
+    check_blank(&f, (struct pl_color_space){.primaries = PL_COLOR_PRIM_BT_2020,
+        .transfer = PL_COLOR_TRC_HLG, .hdr = {.max_luma = 1000}}, 64, 72);
     const float extended[4] = {-0.1, 1.0, 4.9261084, 0.375};
     struct pl_hook_res result = process(&f, extended, linear, 64, 48);
     assert(result.output == PL_HOOK_SIG_TEX);
@@ -489,6 +517,6 @@ int main(int argc, char **argv)
     vkDestroyPipelineLayout(vk->device, f.layout, NULL);
     vkDestroyDescriptorSetLayout(vk->device, f.bindings, NULL);
     pl_dispatch_destroy(&f.dispatch); pl_vulkan_destroy(&vk); pl_log_destroy(&log);
-    printf("PASS: Vulkan handoff; SDR/PQ/extended linear; 37 HLG source/display cases; alpha; 288 queued resize frames; bypass/recovery; teardown; peak pending %d; completions %d\n", f.peak_pending, f.completed);
+    printf("PASS: Vulkan handoff; SDR/PQ/extended linear; 37 HLG source/display cases; alpha; 4 opaque black fallbacks; 288 queued resize frames; bypass/recovery; teardown; peak pending %d; completions %d\n", f.peak_pending, f.completed);
     return 0;
 }

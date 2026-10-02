@@ -78,6 +78,15 @@ paused playback; seek resets suppress the old frame until a new decoded frame
 arrives. Unregistering prevents further processing and retains callbacks until
 the renderer releases them. See the header for callback ownership and threading.
 
+Hosts that own image geometry can probe the additional ABI 1 symbol
+`kmediampv_vulkan_processing_set_output_required(id, required)`. With this flag
+enabled, unavailable output produces opaque black instead of the unprocessed
+source, including disabled callbacks, transport failure and seek barriers.
+Successful output keeps the normal path. The flag defaults to false and leaves
+the version and callback structure unchanged. Older runtimes without this symbol
+still support optional effects, but cannot promise processor-owned geometry.
+The fallback is a constant renderer shader and needs no transport image allocation.
+
 After building the Android ARM64 prefix, run on an already booted test device:
 
 ```sh
@@ -91,9 +100,10 @@ python3 native/tests/run_vulkan_interop.py \
 ```
 
 Omit the three Android arguments to run against a local desktop Vulkan prefix.
-Each iteration checks 200 libplacebo render/readback frames independently of the
+Each iteration checks registry lifetime, redraw and required-output fault handling,
+then 200 libplacebo render/readback frames independently of the
 host hook, then SDR/PQ/extended-linear values, 37 HLG source/display cases, alpha,
-288 queued resize frames, bypass/recovery and teardown. Readbacks and blocking
+four SDR/HDR opaque-black fallbacks, 288 queued resize frames, bypass/recovery and teardown. Readbacks and blocking
 waits belong to the fixture. These tests do not certify player video throughput,
 HDR presentation, physical devices or the consuming Android client integration.
 
