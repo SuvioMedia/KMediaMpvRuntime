@@ -62,6 +62,11 @@ Android `gpu-next` / `androidvk` exposes the optional
 `kmedia-vulkan-processing-id` before opening video. The hook receives decoded RGB
 before scaling and native subtitles. It preserves source HLG luminance before
 display adaptation and uses linear BT.2020 RGBA16F, with 1.0 equal to 100 nits.
+Both Android Vulkan and Apple Metal normalize relative SDR transfers to a 100-nit
+reference before processing and invert that normalization afterwards. Libplacebo's
+display-relative SDR white (normally 203 nits) therefore cannot clip the normalized
+ArtCNN/Anime4K input. PQ, HLG and absolute linear HDR retain their luminance units;
+the hook's original color metadata remains unchanged for subsequent display mapping.
 
 The host records compute work into a borrowed Vulkan command buffer and returns
 an image on that device. The runtime consumes it before `end_frame`, then reports

@@ -231,6 +231,13 @@ static struct pl_color_space processing_color(const struct pl_hook_params *hp,
                                               const struct pl_color_space *source)
 {
     struct pl_color_space color = hp->color;
+    if (color.transfer != PL_COLOR_TRC_LINEAR && !pl_color_transfer_is_hdr(color.transfer)) {
+        // SDR models use reference white = 100 nits. libplacebo's inferred display white
+        // (usually 203 nits) must not push their normalized input above one and clip it.
+        // Use the same reference for the inverse conversion, leaving hook metadata intact.
+        color.hdr.min_luma = PL_COLOR_HDR_BLACK;
+        color.hdr.max_luma = 100;
+    }
     if (source && source->transfer == PL_COLOR_TRC_HLG && color.transfer == PL_COLOR_TRC_HLG) {
         // libplacebo adapts HLG's black/peak to the target before dispatching RGB hooks.
         // Effects need source-referred nits; target adaptation belongs after processing.

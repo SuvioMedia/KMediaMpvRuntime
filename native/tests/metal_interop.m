@@ -216,6 +216,27 @@ int main(void)
         check_input(&f, (float[4]){0.6274039, 0.0690973, 0.0163914, 1});
         clear_results(&f);
 
+        // Display white and black inferred by libplacebo must not alter the SDR model domain.
+        const enum pl_color_transfer sdr_transfers[] = {
+            PL_COLOR_TRC_SRGB, PL_COLOR_TRC_BT_1886, PL_COLOR_TRC_GAMMA22, PL_COLOR_TRC_GAMMA24,
+        };
+        const float sdr_peaks[] = {100, 203, 400};
+        for (int t = 0; t < 4; ++t) for (int peak = 0; peak < 3; ++peak) {
+            sdr.transfer = sdr_transfers[t];
+            sdr.hdr.max_luma = sdr_peaks[peak];
+            sdr.hdr.min_luma = 0.203;
+            result = process(&f, (float[4]){1, 1, 1, 1}, sdr, 64, 48);
+            check(&f, result.tex, (float[4]){1, 1, 1, 1}, "SDR display-white identity");
+            check_input(&f, (float[4]){1, 1, 1, 1});
+            assert(result.color.hdr.max_luma == sdr_peaks[peak]);
+            clear_results(&f);
+        }
+        sdr.transfer = PL_COLOR_TRC_SRGB;
+        result = process(&f, (float[4]){0.5, 0.5, 0.5, 1}, sdr, 64, 48);
+        check(&f, result.tex, (float[4]){0.5, 0.5, 0.5, 1}, "SDR mid-gray identity");
+        check_input(&f, (float[4]){0.21404114, 0.21404114, 0.21404114, 1});
+        clear_results(&f);
+
         struct pl_color_space pq = linear;
         pq.transfer = PL_COLOR_TRC_PQ;
         float value = pq_encode(1000);
