@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 #include <libplacebo/log.h>
 #include <libplacebo/vulkan.h>
 #include <libplacebo/shaders/sampling.h>
@@ -37,7 +38,18 @@ struct fixture {
     bool bypass, invalid, capture_input;
     struct lease *encoding;
     const struct pl_color_space *source_color;
+    bool geometry_owned, geometry_thread_checked;
+    struct kmp_vk_source_geometry geometry;
+    const struct kmp_vk_frame *last_encoding_frame;
 };
+static void *check_geometry_other_thread(void *opaque)
+{
+    const struct kmp_vk_frame *frame = opaque;
+    struct kmp_vk_source_geometry geometry = {.width = -123};
+    assert(kmediampv_vulkan_processing_get_source_geometry(frame, &geometry, sizeof(geometry)) == -1);
+    assert(geometry.width == -123);
+    return NULL;
+}
 static uint32_t memory_type(struct fixture *f, uint32_t bits, VkMemoryPropertyFlags flags)
 {
     VkPhysicalDeviceMemoryProperties props;
@@ -89,6 +101,25 @@ static bool encode(void *opaque, const struct kmp_vk_frame *frame, struct kmp_vk
     assert(!f->encoding && frame->device == (uint64_t)(uintptr_t)f->vk->device);
     assert(frame->device_generation && frame->source_revision == 9 && frame->frame_id == 17 && frame->pts_us == 250000);
     assert(frame->target_width == 128 && frame->target_height == 96);
+    f->last_encoding_frame = frame;
+    struct kmp_vk_source_geometry geometry = {.width = -123};
+    struct kmp_vk_frame different_frame = *frame;
+    assert(kmediampv_vulkan_processing_get_source_geometry(&different_frame, &geometry, sizeof(geometry)) == -1);
+    assert(kmediampv_vulkan_processing_get_source_geometry(frame, &geometry, sizeof(geometry) - 1) == -1);
+    assert(kmediampv_vulkan_processing_get_source_geometry(frame, NULL, sizeof(geometry)) == -1);
+    assert(geometry.width == -123);
+    int geometry_result = kmediampv_vulkan_processing_get_source_geometry(frame, &geometry, sizeof(geometry));
+    if (f->geometry_owned) {
+        assert(geometry_result == 0 && !memcmp(&geometry, &f->geometry, sizeof(geometry)));
+        if (!f->geometry_thread_checked) {
+            pthread_t thread;
+            assert(!pthread_create(&thread, NULL, check_geometry_other_thread, (void *)frame));
+            assert(!pthread_join(thread, NULL));
+            f->geometry_thread_checked = true;
+        }
+    } else {
+        assert(geometry_result == -1 && geometry.width == -123);
+    }
     if (f->bypass) return false;
     struct lease *l = f->encoding = calloc(1, sizeof(*l)); assert(l);
     f->pending++; if (f->pending > f->peak_pending) f->peak_pending = f->pending;
@@ -211,6 +242,11 @@ static pl_tex get_texture(void *opaque, int width, int height)
 }
 static struct pl_hook_res process(struct fixture *f, const float rgba[4], struct pl_color_space color, int width, int height)
 {
+    f->geometry = (struct kmp_vk_source_geometry){
+        .width = width, .height = height, .crop_x0 = 0, .crop_y0 = 0, .crop_x1 = width, .crop_y1 = height,
+        .rotation_degrees = (width % 4) * 90, .vertical_flip = height % 2,
+        .pixel_aspect_num = 4, .pixel_aspect_den = 3,
+    };
     size_t count = (size_t)width * height * 4;
     float *pixels = malloc(count * sizeof(float)); assert(pixels);
     for (size_t i = 0; i < count; ++i) pixels[i] = rgba[i % 4];
@@ -224,7 +260,11 @@ static struct pl_hook_res process(struct fixture *f, const float rgba[4], struct
             .dispatch = f->dispatch, .get_tex = get_texture, .priv = f, .tex = input,
             .color = color, .components = 4, .repr = {.sys = PL_COLOR_SYSTEM_RGB, .levels = PL_COLOR_LEVELS_FULL},
             .rect = {0, 0, width, height}, .dst_rect = {0, 0, 128, 96}},
-            f->source_color ? f->source_color : &color, 250000, 17, 9);
+            f->source_color ? f->source_color : &color, 250000, 17, 9,
+            f->geometry_owned ? &f->geometry : NULL);
+        struct kmp_vk_source_geometry after = {.width = -123};
+        assert(kmediampv_vulkan_processing_get_source_geometry(
+            f->last_encoding_frame, &after, sizeof(after)) == -1 && after.width == -123);
         if (result.output != PL_HOOK_SIG_NONE || f->bypass || f->invalid) break;
         /* Test-only backpressure drain; normal renderer calls bypass instead of waiting. */
         pl_gpu_finish(f->gpu); kmp_vulkan_interop_poll(f->interop);
@@ -474,6 +514,20 @@ int main(int argc, char **argv)
     f.source_color = NULL;
     f.capture_input = false;
 
+    // Geometry is an immutable encode-only side channel; pixels remain in source coordinates.
+    // The host applies these transforms after retrieving the snapshot. Check all quarter turns
+    // and flips, then return to an old host with no geometry side channel.
+    f.geometry_owned = true;
+    for (int quarter = 0; quarter < 4; quarter++) {
+        for (int flip = 0; flip < 2; flip++) {
+            result = process(&f, extended, linear, 64 + quarter, 48 + flip);
+            check(&f, result.tex, extended, "geometry side channel preserves source pixels");
+            clear_results(&f);
+        }
+    }
+    assert(f.geometry_thread_checked);
+    f.geometry_owned = false;
+
     // Queue frames before reading any result. Alternate both pool sizes
     // and colors, and verify older outputs after the shared pool is reused.
     for (int round = 0; round < 12; round++) {
@@ -517,6 +571,6 @@ int main(int argc, char **argv)
     vkDestroyPipelineLayout(vk->device, f.layout, NULL);
     vkDestroyDescriptorSetLayout(vk->device, f.bindings, NULL);
     pl_dispatch_destroy(&f.dispatch); pl_vulkan_destroy(&vk); pl_log_destroy(&log);
-    printf("PASS: Vulkan handoff; SDR/PQ/extended linear; 37 HLG source/display cases; alpha; 4 opaque black fallbacks; 288 queued resize frames; bypass/recovery; teardown; peak pending %d; completions %d\n", f.peak_pending, f.completed);
+    printf("PASS: Vulkan handoff; 8 encode-only geometry snapshots and thread isolation; SDR/PQ/extended linear; 37 HLG source/display cases; alpha; 4 opaque black fallbacks; 288 queued resize frames; bypass/recovery; teardown; peak pending %d; completions %d\n", f.peak_pending, f.completed);
     return 0;
 }

@@ -13,6 +13,7 @@ struct registration {
     unsigned refs;
     atomic_bool live;
     atomic_bool output_required;
+    atomic_bool source_geometry;
     struct vo *vo;
     struct kmp_vk_callbacks cb;
 };
@@ -27,6 +28,8 @@ struct kmp_vulkan_processing {
     double pts;
     uint64_t frame_id, revision;
     bool enabled, requested, awaiting_new_frame;
+    bool owns_geometry, geometry_valid;
+    struct kmp_vk_source_geometry geometry;
 };
 
 int kmediampv_vulkan_processing_api_version(void) { return 1; }
@@ -39,6 +42,7 @@ int64_t kmediampv_vulkan_processing_register(const struct kmp_vk_callbacks *cb)
     if (!r) return 0;
     r->cb = *cb; r->refs = 1; atomic_init(&r->live, true);
     atomic_init(&r->output_required, false);
+    atomic_init(&r->source_geometry, false);
     mp_mutex_lock(&registry_lock);
     if (next_id == INT64_MAX) { mp_mutex_unlock(&registry_lock); free(r); return 0; }
     r->id = next_id++;
@@ -90,14 +94,50 @@ int kmediampv_vulkan_processing_set_output_required(int64_t id, bool required)
     mp_mutex_unlock(&registry_lock);
     return result;
 }
+int kmediampv_vulkan_processing_set_source_geometry(int64_t id, bool owned)
+{
+    int result = -1;
+    mp_mutex_lock(&registry_lock);
+    for (struct registration *r = registrations; r; r = r->next) {
+        if (r->id == id) {
+            if (atomic_exchange(&r->source_geometry, owned) != owned && r->vo)
+                vo_redraw(r->vo);
+            result = 0;
+            break;
+        }
+    }
+    mp_mutex_unlock(&registry_lock);
+    return result;
+}
+bool kmp_vulkan_processing_owns_geometry(struct kmp_vulkan_processing *p)
+{
+    return p && p->owns_geometry;
+}
+void kmp_vulkan_processing_source_geometry(struct kmp_vulkan_processing *p,
+    const struct kmp_vk_source_geometry *g)
+{
+    if (!p) return;
+    p->geometry_valid = false;
+    if (!g || g->width <= 0 || g->height <= 0 ||
+        g->crop_x0 < 0 || g->crop_y0 < 0 || g->crop_x1 > g->width || g->crop_y1 > g->height ||
+        g->crop_x1 <= g->crop_x0 || g->crop_y1 <= g->crop_y0 ||
+        g->rotation_degrees < 0 || g->rotation_degrees >= 360 || g->rotation_degrees % 90 ||
+        (g->vertical_flip != 0 && g->vertical_flip != 1) ||
+        g->pixel_aspect_num <= 0 || g->pixel_aspect_den <= 0)
+        return;
+    p->geometry = *g;
+    p->geometry_valid = true;
+}
 static struct pl_hook_res process(void *opaque, const struct pl_hook_params *params)
 {
     struct kmp_vulkan_processing *p = opaque;
-    bool required = atomic_load(&p->host->output_required);
+    bool required = atomic_load(&p->host->output_required) || p->owns_geometry;
     struct pl_hook_res result = {0};
-    if (p->enabled && p->requested && atomic_load(&p->host->live))
+    if (p->enabled && p->requested && atomic_load(&p->host->live) &&
+        (!p->owns_geometry || p->geometry_valid))
         result = kmp_vulkan_interop_process(p->interop, params, &p->color,
-            (int64_t)llround(p->pts * 1000000), p->frame_id, p->revision);
+            (int64_t)llround(p->pts * 1000000), p->frame_id, p->revision,
+            p->owns_geometry ? &p->geometry : NULL);
     if (required && (result.failed || result.output == PL_HOOK_SIG_NONE))
         return kmp_vulkan_interop_blank(params);
     return result;
@@ -138,6 +178,8 @@ bool kmp_vulkan_processing_frame(struct kmp_vulkan_processing *p, double pts, ui
 {
     if (!p) return false;
     kmp_vulkan_interop_poll(p->interop);
+    p->owns_geometry = atomic_load(&p->host->source_geometry);
+    p->geometry_valid = false;
     // An empty redraw is not a newly decoded frame and must not open a seek barrier.
     if (!color || !isfinite(pts) || fabs(pts) >= 1e10) {
         p->enabled = p->requested = false;
@@ -147,7 +189,7 @@ bool kmp_vulkan_processing_frame(struct kmp_vulkan_processing *p, double pts, ui
     p->pts = pts; p->frame_id = frame_id; p->color = *color;
     p->requested = !p->awaiting_new_frame &&
         !kmp_vulkan_interop_failed(p->interop) && atomic_load(&p->host->live) && p->host->cb.enabled(p->host->cb.opaque);
-    p->enabled = p->requested || atomic_load(&p->host->output_required);
+    p->enabled = p->requested || atomic_load(&p->host->output_required) || p->owns_geometry;
     return p->enabled;
 }
 void kmp_vulkan_processing_reset(struct kmp_vulkan_processing *p)

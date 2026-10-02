@@ -39,6 +39,18 @@ struct kmp_vulkan_interop {
     bool failed;
 };
 static atomic_uint_fast64_t next_generation = 1;
+static _Thread_local const struct kmp_vk_frame *encoding_frame;
+static _Thread_local const struct kmp_vk_source_geometry *encoding_geometry;
+
+int kmediampv_vulkan_processing_get_source_geometry(const struct kmp_vk_frame *frame,
+    struct kmp_vk_source_geometry *output, uint32_t size)
+{
+    if (!frame || frame != encoding_frame || !encoding_geometry ||
+        !output || size != sizeof(*output))
+        return -1;
+    *output = *encoding_geometry;
+    return 0;
+}
 
 static void destroy_image(struct kmp_vulkan_interop *p, struct shared_image *image)
 {
@@ -279,7 +291,8 @@ static void barrier(VkCommandBuffer command, VkImage image, VkImageLayout before
 }
 struct pl_hook_res kmp_vulkan_interop_process(struct kmp_vulkan_interop *p,
     const struct pl_hook_params *hp, const struct pl_color_space *source_color,
-    int64_t pts_us, uint64_t frame_id, uint64_t source_revision)
+    int64_t pts_us, uint64_t frame_id, uint64_t source_revision,
+    const struct kmp_vk_source_geometry *geometry)
 {
     struct pl_hook_res bypass = {0};
     if (!p || !hp || hp->gpu != p->gpu || !hp->tex || !hp->dispatch || !hp->get_tex || p->failed) return bypass;
@@ -309,7 +322,13 @@ struct pl_hook_res kmp_vulkan_interop_process(struct kmp_vulkan_interop *p,
         .target_width = abs(pl_rect_w(hp->dst_rect)), .target_height = abs(pl_rect_h(hp->dst_rect)),
         .hdr = pl_color_space_is_hdr(source_color ? source_color : &hp->color)};
     struct kmp_vk_output output = {0};
+    const struct kmp_vk_frame *previous_frame = encoding_frame;
+    const struct kmp_vk_source_geometry *previous_geometry = encoding_geometry;
+    encoding_frame = &s->frame;
+    encoding_geometry = geometry;
     bool encoded = p->cb.encode(p->cb.opaque, &s->frame, &output);
+    encoding_frame = previous_frame;
+    encoding_geometry = previous_geometry;
     bool valid = encoded && output.image && output.width > 0 && output.height > 0;
     bool output_held = valid && ensure_image(p, &s->output, output.width, output.height) &&
         hold(p, &s->output, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, s->output_ready, s->serial);

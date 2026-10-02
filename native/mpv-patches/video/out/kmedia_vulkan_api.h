@@ -19,6 +19,16 @@ struct kmp_vk_output {
     uint64_t image;
     int32_t width, height;
 };
+/* Source coordinates before presentation transforms. Crop is a half-open pixel rectangle
+ * in the unrotated width/height. Apply crop, vertical flip, then clockwise rotation.
+ * Pixel aspect is positive and refers to those unrotated pixels. */
+#define KMP_VK_SOURCE_GEOMETRY_VERSION 1
+struct kmp_vk_source_geometry {
+    int32_t width, height;
+    int32_t crop_x0, crop_y0, crop_x1, crop_y1;
+    int32_t rotation_degrees, vertical_flip;
+    int32_t pixel_aspect_num, pixel_aspect_den;
+};
 struct kmp_vk_callbacks {
     uint32_t version, size;
     void *opaque;
@@ -51,4 +61,15 @@ MPV_EXPORT void kmediampv_vulkan_processing_request_frame(int64_t id);
  * Defaults to false. Thread-safe; returns 0 for a live registration, -1 otherwise.
  * Probe this symbol before enabling host-owned geometry; old ABI 1 runtimes lack it. */
 MPV_EXPORT int kmediampv_vulkan_processing_set_output_required(int64_t id, bool required);
+/* Optional ABI 1 extension for metadata-preserving geometry ownership. The caller keeps
+ * video-rotate=0 and video-crop empty. This mode removes source rotation/crop only from the
+ * renderer's output mapping, retaining the decoded metadata for the processor. It also
+ * requires output even when set_output_required is false. Defaults to false. */
+MPV_EXPORT int kmediampv_vulkan_processing_set_source_geometry(int64_t id, bool owned);
+/* Available only inside encode, on that callback's thread, for that exact frame pointer.
+ * Returns 0 and copies a validated snapshot when source geometry is owned; otherwise -1
+ * without touching output. Size must equal sizeof(*output). No synchronous mpv call occurs.
+ * Existing frame/callback structures and API version remain unchanged. */
+MPV_EXPORT int kmediampv_vulkan_processing_get_source_geometry(
+    const struct kmp_vk_frame *frame, struct kmp_vk_source_geometry *output, uint32_t size);
 #endif

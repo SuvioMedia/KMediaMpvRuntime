@@ -536,6 +536,63 @@ PATCHES["mpv"] += (('options/options.h',
   '    if (p->ra_ctx && p->ra_ctx->fns->wait_events) {\n'))
 
 
+# Keep decoded geometry intact. Geometry ownership is applied only at the final renderer,
+# using the exact mapped image selected by the queue, including paused ownership changes.
+PATCHES["mpv"] += (
+    (
+        "video/out/vo_gpu_next.c",
+        "struct frame_priv {\n    struct vo *vo;\n",
+        "struct frame_priv {\n    struct vo *vo;\n"
+        "#if HAVE_ANDROID && HAVE_VULKAN\n"
+        "    struct kmp_vk_source_geometry source_geometry;\n"
+        "#endif\n",
+    ),
+    (
+        "video/out/vo_gpu_next.c",
+        "    mp_image_params_guess_csp(&par);\n\n    *frame = (struct pl_frame) {\n",
+        "    mp_image_params_guess_csp(&par);\n"
+        "#if HAVE_ANDROID && HAVE_VULKAN\n"
+        "    struct mp_rect source_crop = mp_image_crop_valid(&par)\n"
+        "        ? par.crop : (struct mp_rect){0, 0, par.w, par.h};\n"
+        "    fp->source_geometry = (struct kmp_vk_source_geometry){\n"
+        "        .width = par.w, .height = par.h,\n"
+        "        .crop_x0 = source_crop.x0, .crop_y0 = source_crop.y0,\n"
+        "        .crop_x1 = source_crop.x1, .crop_y1 = source_crop.y1,\n"
+        "        .rotation_degrees = par.rotate, .vertical_flip = par.vflip,\n"
+        "        .pixel_aspect_num = par.p_w, .pixel_aspect_den = par.p_h,\n"
+        "    };\n"
+        "#endif\n\n"
+        "    *frame = (struct pl_frame) {\n",
+    ),
+    (
+        "video/out/vo_gpu_next.c",
+        "    // pl_queue advances its internal virtual PTS and culls available frames\n",
+        "#if HAVE_ANDROID && HAVE_VULKAN\n"
+        "    if (kmp_vulkan_processing_owns_geometry(p->vulkan_processing))\n"
+        "        params.distort_params = NULL;\n"
+        "#endif\n\n"
+        "    // pl_queue advances its internal virtual PTS and culls available frames\n",
+    ),
+    (
+        "video/out/vo_gpu_next.c",
+        "            apply_crop(image, p->src, vo->params->w, vo->params->h);\n",
+        "#if HAVE_ANDROID && HAVE_VULKAN\n"
+        "            const struct kmp_vk_source_geometry *geometry = &fp->source_geometry;\n"
+        "            image->rotation = geometry->rotation_degrees / 90;\n"
+        "            if (kmp_vulkan_processing_owns_geometry(p->vulkan_processing)) {\n"
+        "                // Mixing is disabled for host processing. Never attach one image's\n"
+        "                // metadata to another image if that invariant is broken.\n"
+        "                kmp_vulkan_processing_source_geometry(p->vulkan_processing,\n"
+        "                    mix.num_frames == 1 ? geometry : NULL);\n"
+        "                image->rotation = 0;\n"
+        "                image->crop = (struct pl_rect2df){0, 0, geometry->width, geometry->height};\n"
+        "            } else\n"
+        "#endif\n"
+        "            apply_crop(image, p->src, vo->params->w, vo->params->h);\n",
+    ),
+)
+
+
 ADDITIONS: dict[str, tuple[tuple[str, str], ...]] = {
     "mpv": (
         ("video/out/kmedia_vulkan_api.h", "native/mpv-patches/video/out/kmedia_vulkan_api.h"),

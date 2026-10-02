@@ -15,5 +15,6 @@ bool kmp_vulkan_interop_failed(struct kmp_vulkan_interop *context);
 struct pl_hook_res kmp_vulkan_interop_blank(const struct pl_hook_params *params);
 struct pl_hook_res kmp_vulkan_interop_process(struct kmp_vulkan_interop *context,
     const struct pl_hook_params *params, const struct pl_color_space *source_color,
-    int64_t pts_us, uint64_t frame_id, uint64_t source_revision);
+    int64_t pts_us, uint64_t frame_id, uint64_t source_revision,
+    const struct kmp_vk_source_geometry *geometry);
 #endif

@@ -87,6 +87,24 @@ the version and callback structure unchanged. Older runtimes without this symbol
 still support optional effects, but cannot promise processor-owned geometry.
 The fallback is a constant renderer shader and needs no transport image allocation.
 
+For geometry that retains source metadata, additionally probe
+`kmediampv_vulkan_processing_set_source_geometry(id, owned)` and
+`kmediampv_vulkan_processing_get_source_geometry(frame, output, size)`.
+With ownership enabled, keep `video-rotate=0` and `video-crop` empty, and use
+`keepaspect=no`/`panscan=0` for a viewport-sized host result. The renderer then
+removes its own source crop, rotation and vertical flip only from the final mapping.
+The decoded metadata remains intact. Source ownership independently requires output;
+missing or invalid geometry produces black rather than reusing another frame's metadata.
+
+The getter is valid only during `encode`, on its thread, for its exact borrowed
+frame pointer. It returns the selected mapped image's unrotated dimensions, crop,
+clockwise quarter-turn, vertical flip and pixel aspect ratio. Apply crop, flip and
+source rotation before interpreting the displayed source's stereo packing. Preserve
+pixel aspect when fitting the isolated eyes. Do not query synchronized mpv properties
+from the renderer callback or attach asynchronously polled metadata to a newer frame.
+The mode is latched per draw, including paused changes; turning it off restores
+native mapping of queued images. Existing ABI 1 frame/callback structures are unchanged.
+
 After building the Android ARM64 prefix, run on an already booted test device:
 
 ```sh
@@ -100,10 +118,12 @@ python3 native/tests/run_vulkan_interop.py \
 ```
 
 Omit the three Android arguments to run against a local desktop Vulkan prefix.
-Each iteration checks registry lifetime, redraw and required-output fault handling,
+Each iteration checks registry lifetime, redraw, required-output fault handling and
+source-geometry validation/frame isolation,
 then 200 libplacebo render/readback frames independently of the
 host hook, then SDR/PQ/extended-linear values, 37 HLG source/display cases, alpha,
-four SDR/HDR opaque-black fallbacks, 288 queued resize frames, bypass/recovery and teardown. Readbacks and blocking
+four SDR/HDR opaque-black fallbacks, eight encode-only geometry snapshots with thread
+isolation, 288 queued resize frames, bypass/recovery and teardown. Readbacks and blocking
 waits belong to the fixture. These tests do not certify player video throughput,
 HDR presentation, physical devices or the consuming Android client integration.
 

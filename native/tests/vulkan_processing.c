@@ -7,7 +7,7 @@
 #include "stubs/vo.h"
 #include "../mpv-patches/video/out/kmedia_vulkan_processing.h"
 
-static bool requested, unavailable, fail_creation, bypass, invalid;
+static bool requested, unavailable, fail_creation, bypass, invalid, expect_geometry;
 static int encodes, blanks, failures, releases, destroyed;
 static uint64_t revision;
 struct kmp_vulkan_interop { int unused; };
@@ -22,10 +22,17 @@ struct pl_hook_res kmp_vulkan_interop_blank(const struct pl_hook_params *hp)
 { (void)hp; blanks++; return (struct pl_hook_res){.output = PL_HOOK_SIG_COLOR}; }
 struct pl_hook_res kmp_vulkan_interop_process(struct kmp_vulkan_interop *p,
     const struct pl_hook_params *hp, const struct pl_color_space *color,
-    int64_t pts, uint64_t frame, uint64_t source)
+    int64_t pts, uint64_t frame, uint64_t source, const struct kmp_vk_source_geometry *geometry)
 {
     (void)hp; (void)color;
     assert(p && pts == 250000 && frame > 0);
+    assert((geometry != NULL) == expect_geometry);
+    if (geometry)
+        assert(geometry->width == 320 && geometry->height == 240 &&
+            geometry->crop_x0 == 16 && geometry->crop_y0 == 24 &&
+            geometry->crop_x1 == 304 && geometry->crop_y1 == 216 &&
+            geometry->rotation_degrees == 90 && geometry->vertical_flip == 1 &&
+            geometry->pixel_aspect_num == 4 && geometry->pixel_aspect_den == 3);
     encodes++; revision = source;
     return (struct pl_hook_res){.failed = invalid, .output = bypass ? PL_HOOK_SIG_NONE : PL_HOOK_SIG_TEX};
 }
@@ -95,6 +102,50 @@ int main(void)
     assert(releases == 1);
     kmediampv_vulkan_processing_unregister(id);
     assert(releases == 2 && destroyed == 2);
-    puts("PASS: ABI 1 registry; optional output requirement; redraw; disabled/bypass/failure; seek barrier; unregister; startup failure");
+    // Metadata ownership itself requires output and survives lack of the separate output flag.
+    fail_creation = false;
+    requested = true;
+    id = kmediampv_vulkan_processing_register(&cb);
+    assert(kmediampv_vulkan_processing_set_source_geometry(-1, true) == -1);
+    assert(kmediampv_vulkan_processing_set_source_geometry(id, true) == 0);
+    p = kmp_vulkan_processing_create((pl_gpu)(uintptr_t)1, id, &vo);
+    assert(p && !kmp_vulkan_processing_owns_geometry(p)); // latched at frame boundary
+    assert(draw(p, 3) == PL_HOOK_SIG_COLOR && kmp_vulkan_processing_owns_geometry(p));
+    const struct kmp_vk_source_geometry geometry = {
+        .width = 320, .height = 240, .crop_x0 = 16, .crop_y0 = 24, .crop_x1 = 304, .crop_y1 = 216,
+        .rotation_degrees = 90, .vertical_flip = 1, .pixel_aspect_num = 4, .pixel_aspect_den = 3,
+    };
+    const struct pl_hook *hook = kmp_vulkan_processing_hook(p);
+    kmp_vulkan_processing_source_geometry(p, &geometry);
+    expect_geometry = true;
+    assert(hook->hook(hook->priv, NULL).output == PL_HOOK_SIG_TEX);
+    // Invalid/missing metadata never reuses the previous valid image's geometry.
+    struct kmp_vk_source_geometry bad = geometry;
+    bad.crop_x1 = 321;
+    kmp_vulkan_processing_source_geometry(p, &bad);
+    assert(hook->hook(hook->priv, NULL).output == PL_HOOK_SIG_COLOR);
+    bad = geometry; bad.rotation_degrees = 91;
+    kmp_vulkan_processing_source_geometry(p, &bad);
+    assert(hook->hook(hook->priv, NULL).output == PL_HOOK_SIG_COLOR);
+    bad = geometry; bad.pixel_aspect_den = 0;
+    kmp_vulkan_processing_source_geometry(p, &bad);
+    assert(hook->hook(hook->priv, NULL).output == PL_HOOK_SIG_COLOR);
+    bad = geometry; bad.vertical_flip = 2;
+    kmp_vulkan_processing_source_geometry(p, &bad);
+    assert(hook->hook(hook->priv, NULL).output == PL_HOOK_SIG_COLOR);
+    kmp_vulkan_processing_source_geometry(p, &geometry);
+    assert(draw(p, 4) == PL_HOOK_SIG_COLOR); // a new draw invalidates old metadata
+    kmp_vulkan_processing_source_geometry(p, &geometry);
+    int redraws = vo.redraws;
+    assert(kmediampv_vulkan_processing_set_source_geometry(id, false) == 0);
+    assert(vo.redraws == redraws + 1 && kmp_vulkan_processing_owns_geometry(p));
+    assert(hook->hook(hook->priv, NULL).output == PL_HOOK_SIG_TEX); // current draw stays latched
+    expect_geometry = false;
+    assert(draw(p, 4) == PL_HOOK_SIG_TEX && !kmp_vulkan_processing_owns_geometry(p));
+    kmediampv_vulkan_processing_unregister(id);
+    assert(kmediampv_vulkan_processing_set_source_geometry(id, true) == -1);
+    kmp_vulkan_processing_destroy(&p);
+    assert(releases == 3 && destroyed == 3);
+    puts("PASS: ABI 1 registry; required output; geometry ownership/validation/frame isolation; redraw; bypass/failure; seek barrier; unregister; startup failure");
     return 0;
 }
