@@ -1,0 +1,12 @@
+#version 450
+layout(local_size_x=8, local_size_y=8) in;
+layout(binding=0) uniform sampler2D source;
+layout(rgba16f, binding=1) writeonly uniform image2D destination;
+layout(push_constant) uniform Adjustment { float factor; float offset; } adjustment;
+void main() {
+    ivec2 p = ivec2(gl_GlobalInvocationID.xy), size = imageSize(destination);
+    if (any(greaterThanEqual(p, size))) return;
+    vec4 c = texelFetch(source, p * textureSize(source, 0) / size, 0);
+    c.rgb = c.rgb * adjustment.factor + adjustment.offset;
+    imageStore(destination, p, c);
+}

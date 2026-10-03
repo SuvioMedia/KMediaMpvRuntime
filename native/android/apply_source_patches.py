@@ -25,6 +25,15 @@ REPLACEMENTS: dict[str, tuple[tuple[str, str, str], ...]] = {
 
 PATCHES: dict[str, tuple[tuple[str, str, str], ...]] = {
     "libplacebo": (
+        (
+            "src/vulkan/command.c",
+            "    if (vk->driver_props.driverID == VK_DRIVER_ID_MOLTENVK) {\n",
+            "    // Android GFXStream forwards MoltenVK but reports MESA_LLVMPIPE as its ID.\n"
+            "    // Keep the upstream completion-fence workaround for this known driver chain.\n"
+            "    // The render-only regression reproduces stale downloads without this check.\n"
+            "    if (vk->driver_props.driverID == VK_DRIVER_ID_MOLTENVK ||\n"
+            "        strcmp(vk->driver_props.driverName, \"gfxstream (MoltenVK)\") == 0) {\n",
+        ),
         ("src/meson.build", "lib = library('placebo', sources,", "lib = library('kmediampv_placebo', sources,"),
         ("src/meson.build", "  soversion: apiver,\n", ""),
         (
@@ -241,6 +250,76 @@ PATCHES: dict[str, tuple[tuple[str, str, str], ...]] = {
             "endif\n",
         ),
         (
+            "video/out/vo_gpu_next.c",
+            '#include "config.h"\n',
+            '#include "config.h"\n'
+            '#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n'
+            '#include "kmedia_metal_processing.h"\n'
+            '#endif\n',
+        ),
+        (
+            "video/out/vo_gpu_next.c",
+            "    struct mp_image_params target_params;\n",
+            "    struct mp_image_params target_params;\n"
+            "#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n"
+            "    struct kmp_metal_processing *metal_processing;\n"
+            "    bool metal_processing_was_enabled;\n"
+            "#endif\n",
+        ),
+        (
+            "video/out/vo_gpu_next.c",
+            "    bool cache_frame = will_redraw || frame->still;\n",
+            "    bool processing = false;\n"
+            "#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n"
+            "    processing = kmp_metal_processing_frame(p->metal_processing,\n"
+            "        frame->current ? frame->current->pts : MP_NOPTS_VALUE, frame->frame_id,\n"
+            "        frame->current ? &frame->current->params.color : NULL);\n"
+            "    if (processing != p->metal_processing_was_enabled)\n"
+            "        pl_renderer_flush_cache(p->rr);\n"
+            "    p->metal_processing_was_enabled = processing;\n"
+            "#endif\n"
+            "    // Each host invocation belongs to this decoded frame. Mixing/caching\n"
+            "    // would otherwise reuse a previous async result or mislabel its PTS.\n"
+            "    bool cache_frame = !processing && (will_redraw || frame->still);\n",
+        ),
+        (
+            "video/out/vo_gpu_next.c",
+            "    bool can_interpolate = opts->interpolation && frame->display_synced &&\n",
+            "    bool can_interpolate = !processing && opts->interpolation && frame->display_synced &&\n",
+        ),
+        (
+            "video/out/vo_gpu_next.c",
+            "    if (frame->still)\n        params.frame_mixer = NULL;\n",
+            "    if (frame->still || processing)\n        params.frame_mixer = NULL;\n",
+        ),
+        (
+            "video/out/vo_gpu_next.c",
+            "    p->pars = pl_options_alloc(p->pllog);\n",
+            "#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n"
+            "    if (strcmp(p->ra_ctx->fns->name, \"macvk\") == 0 ||\n"
+            "        strcmp(p->ra_ctx->fns->name, \"iosvk\") == 0)\n"
+            "        p->metal_processing = kmp_metal_processing_create(p->gpu, vo->opts->WinID);\n"
+            "#endif\n"
+            "    p->pars = pl_options_alloc(p->pllog);\n",
+        ),
+        (
+            "video/out/vo_gpu_next.c",
+            "    pars->params.num_hooks = 0;\n    const struct pl_hook *hook;\n",
+            "    pars->params.num_hooks = 0;\n    const struct pl_hook *hook;\n"
+            "#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n"
+            "    if ((hook = kmp_metal_processing_hook(p->metal_processing)))\n"
+            "        MP_TARRAY_APPEND(p, p->hooks, pars->params.num_hooks, hook);\n"
+            "#endif\n",
+        ),
+        (
+            "video/out/vo_gpu_next.c",
+            "    pl_queue_destroy(&p->queue); // destroy this first\n",
+            "#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n"
+            "    kmp_metal_processing_destroy(&p->metal_processing);\n"
+            "#endif\n"
+            "    pl_queue_destroy(&p->queue); // destroy this first\n",
+        ),
+        (
             "video/out/gpu/context.c",
             "#if HAVE_COCOA && HAVE_SWIFT\n"
             "    &ra_ctx_vulkan_mac,\n"
@@ -303,6 +382,10 @@ PATCHES: dict[str, tuple[tuple[str, str, str], ...]] = {
             "    endif\n"
             "endif\n"
             "features += {'ios-vulkan': ios_vulkan}\n\n"
+            "if features['vulkan'] and (features['cocoa'] or ios_vulkan)\n"
+            "    sources += files('video/out/kmedia_metal_interop.m',\n"
+            "                     'video/out/kmedia_metal_processing.m')\n"
+            "endif\n\n"
             "features += {'vk-khr-display': vulkan.type_name() == 'internal' or\n",
         ),
         (
@@ -372,8 +455,211 @@ PATCHES: dict[str, tuple[tuple[str, str, str], ...]] = {
 }
 
 
+# Optional Android Vulkan host processing, before scaling and OSD.
+PATCHES["mpv"] += (('options/options.h',
+  '    int64_t WinID;\n',
+  '    int64_t WinID;\n    int64_t kmedia_vulkan_processing_id;\n'),
+ ('options/options.c',
+  '    {"wid", OPT_INT64(WinID), .flags = UPDATE_VO},\n',
+  '    {"wid", OPT_INT64(WinID), .flags = UPDATE_VO},\n'
+  '    {"kmedia-vulkan-processing-id", OPT_INT64(kmedia_vulkan_processing_id), .flags = UPDATE_VO},\n'),
+ ('meson.build',
+  "if features['vulkan'] and features['android']\n",
+  "if features['vulkan'] and features['android']\n"
+  "    sources += files('video/out/kmedia_vulkan_interop.c', 'video/out/kmedia_vulkan_processing.c')\n"),
+ ('meson.build',
+  "    install_headers(headers, subdir: 'mpv')\n",
+  "    install_headers(headers, subdir: 'mpv')\n"
+  "    install_headers('video/out/kmedia_vulkan_api.h', subdir: 'mpv')\n"),
+ ('video/out/vo_gpu_next.c',
+  '#include "config.h"\n',
+  '#include "config.h"\n#if HAVE_ANDROID && HAVE_VULKAN\n#include "kmedia_vulkan_processing.h"\n#endif\n'),
+ ('video/out/vo_gpu_next.c',
+  '    struct mp_image_params target_params;\n',
+  '    struct mp_image_params target_params;\n'
+  '#if HAVE_ANDROID && HAVE_VULKAN\n'
+  '    struct kmp_vulkan_processing *vulkan_processing;\n'
+  '    bool vulkan_processing_was_enabled;\n'
+  '#endif\n'),
+ ('video/out/vo_gpu_next.c',
+  '    // Each host invocation belongs to this decoded frame.',
+  '#if HAVE_ANDROID && HAVE_VULKAN\n'
+  '    bool vk_processing = kmp_vulkan_processing_frame(p->vulkan_processing,\n'
+  '        frame->current ? frame->current->pts : MP_NOPTS_VALUE, frame->frame_id,\n'
+  '        frame->current ? &frame->current->params.color : NULL);\n'
+  '    if (vk_processing != p->vulkan_processing_was_enabled)\n'
+  '        pl_renderer_flush_cache(p->rr);\n'
+  '    p->vulkan_processing_was_enabled = vk_processing;\n'
+  '    processing |= vk_processing;\n'
+  '#endif\n'
+  '    // Each host invocation belongs to this decoded frame.'),
+ ('video/out/vo_gpu_next.c',
+  '    p->pars = pl_options_alloc(p->pllog);\n',
+  '#if HAVE_ANDROID && HAVE_VULKAN\n'
+  '    if (strcmp(p->ra_ctx->fns->name, "androidvk") == 0)\n'
+  '        p->vulkan_processing = kmp_vulkan_processing_create(p->gpu, '
+  'vo->opts->kmedia_vulkan_processing_id, vo);\n'
+  '#endif\n'
+  '    p->pars = pl_options_alloc(p->pllog);\n'),
+ ('video/out/vo_gpu_next.c',
+  '    pars->params.num_hooks = 0;\n    const struct pl_hook *hook;\n',
+  '    pars->params.num_hooks = 0;\n'
+  '    const struct pl_hook *hook;\n'
+  '#if HAVE_ANDROID && HAVE_VULKAN\n'
+  '    if ((hook = kmp_vulkan_processing_hook(p->vulkan_processing)))\n'
+  '        MP_TARRAY_APPEND(p, p->hooks, pars->params.num_hooks, hook);\n'
+  '#endif\n'),
+ ('video/out/vo_gpu_next.c',
+  '    pl_queue_destroy(&p->queue); // destroy this first\n',
+  '#if HAVE_ANDROID && HAVE_VULKAN\n'
+  '    kmp_vulkan_processing_destroy(&p->vulkan_processing);\n'
+  '#endif\n'
+  '    pl_queue_destroy(&p->queue); // destroy this first\n'),
+ ('video/out/vo_gpu_next.c',
+  '    case VOCTRL_RESET:\n',
+  '    case VOCTRL_RESET:\n'
+  '#if HAVE_ANDROID && HAVE_VULKAN\n'
+  '        kmp_vulkan_processing_reset(p->vulkan_processing);\n'
+  '#endif\n'),
+ ('video/out/vo_gpu_next.c',
+  '    switch (request) {\n',
+  '#if HAVE_ANDROID && HAVE_VULKAN\n'
+  '    kmp_vulkan_processing_poll(p->vulkan_processing);\n'
+  '#endif\n'
+  '    switch (request) {\n'),
+ ('video/out/vo_gpu_next.c',
+  '    if (p->ra_ctx && p->ra_ctx->fns->wait_events) {\n',
+  '#if HAVE_ANDROID && HAVE_VULKAN\n'
+  '    if (kmp_vulkan_processing_pending(p->vulkan_processing))\n'
+  '        until_time_ns = MPMIN(until_time_ns, mp_time_ns() + 4000000);\n'
+  '#endif\n'
+  '    if (p->ra_ctx && p->ra_ctx->fns->wait_events) {\n'))
+
+
+# Keep decoded geometry intact. Geometry ownership is applied only at the final renderer,
+# using the exact mapped image selected by the queue, including paused ownership changes.
+PATCHES["mpv"] += (
+    (
+        "video/out/vo_gpu_next.c",
+        "struct frame_priv {\n    struct vo *vo;\n",
+        "struct frame_priv {\n    struct vo *vo;\n"
+        "#if HAVE_ANDROID && HAVE_VULKAN\n"
+        "    struct kmp_vk_source_geometry source_geometry;\n"
+        "#endif\n",
+    ),
+    (
+        "video/out/vo_gpu_next.c",
+        "    mp_image_params_guess_csp(&par);\n\n    *frame = (struct pl_frame) {\n",
+        "    mp_image_params_guess_csp(&par);\n"
+        "#if HAVE_ANDROID && HAVE_VULKAN\n"
+        "    struct mp_rect source_crop = mp_image_crop_valid(&par)\n"
+        "        ? par.crop : (struct mp_rect){0, 0, par.w, par.h};\n"
+        "    fp->source_geometry = (struct kmp_vk_source_geometry){\n"
+        "        .width = par.w, .height = par.h,\n"
+        "        .crop_x0 = source_crop.x0, .crop_y0 = source_crop.y0,\n"
+        "        .crop_x1 = source_crop.x1, .crop_y1 = source_crop.y1,\n"
+        "        .rotation_degrees = par.rotate, .vertical_flip = par.vflip,\n"
+        "        .pixel_aspect_num = par.p_w, .pixel_aspect_den = par.p_h,\n"
+        "    };\n"
+        "#endif\n\n"
+        "    *frame = (struct pl_frame) {\n",
+    ),
+    (
+        "video/out/vo_gpu_next.c",
+        "    // pl_queue advances its internal virtual PTS and culls available frames\n",
+        "#if HAVE_ANDROID && HAVE_VULKAN\n"
+        "    if (kmp_vulkan_processing_owns_geometry(p->vulkan_processing))\n"
+        "        params.distort_params = NULL;\n"
+        "#endif\n\n"
+        "    // pl_queue advances its internal virtual PTS and culls available frames\n",
+    ),
+    (
+        "video/out/vo_gpu_next.c",
+        "            apply_crop(image, p->src, vo->params->w, vo->params->h);\n",
+        "#if HAVE_ANDROID && HAVE_VULKAN\n"
+        "            const struct kmp_vk_source_geometry *geometry = &fp->source_geometry;\n"
+        "            image->rotation = geometry->rotation_degrees / 90;\n"
+        "            if (kmp_vulkan_processing_owns_geometry(p->vulkan_processing)) {\n"
+        "                // Mixing is disabled for host processing. Never attach one image's\n"
+        "                // metadata to another image if that invariant is broken.\n"
+        "                kmp_vulkan_processing_source_geometry(p->vulkan_processing,\n"
+        "                    mix.num_frames == 1 ? geometry : NULL);\n"
+        "                image->rotation = 0;\n"
+        "                image->crop = (struct pl_rect2df){0, 0, geometry->width, geometry->height};\n"
+        "            } else\n"
+        "#endif\n"
+        "            apply_crop(image, p->src, vo->params->w, vo->params->h);\n",
+    ),
+)
+
+
+# Metal hosts opt into immutable decoded geometry and full-viewport output.
+PATCHES["mpv"] += (('video/out/vo_gpu_next.c',
+  'struct frame_priv {\n    struct vo *vo;\n',
+  'struct frame_priv {\n'
+  '    struct vo *vo;\n'
+  '#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n'
+  '    struct kmp_metal_source_geometry metal_source_geometry;\n'
+  '#endif\n'),
+ ('video/out/vo_gpu_next.c',
+  '    mp_image_params_guess_csp(&par);\n',
+  '    mp_image_params_guess_csp(&par);\n'
+  '#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n'
+  '    struct mp_rect metal_crop = mp_image_crop_valid(&par)\n'
+  '        ? par.crop : (struct mp_rect){0, 0, par.w, par.h};\n'
+  '    fp->metal_source_geometry = (struct kmp_metal_source_geometry){\n'
+  '        .width = par.w, .height = par.h,\n'
+  '        .crop_x0 = metal_crop.x0, .crop_y0 = metal_crop.y0,\n'
+  '        .crop_x1 = metal_crop.x1, .crop_y1 = metal_crop.y1,\n'
+  '        .rotation_degrees = par.rotate, .vertical_flip = par.vflip,\n'
+  '        .pixel_aspect_num = par.p_w, .pixel_aspect_den = par.p_h,\n'
+  '    };\n'
+  '#endif\n'),
+ ('video/out/vo_gpu_next.c',
+  '    // pl_queue advances its internal virtual PTS and culls available frames\n',
+  '#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n'
+  '    if (kmp_metal_processing_owns_geometry(p->metal_processing))\n'
+  '        params.distort_params = NULL;\n'
+  '#endif\n'
+  '    // pl_queue advances its internal virtual PTS and culls available frames\n'),
+ ('video/out/vo_gpu_next.c',
+  '    apply_crop(&target, p->dst, swframe.fbo->params.w, swframe.fbo->params.h);\n',
+  '#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n'
+  '    if (kmp_metal_processing_owns_geometry(p->metal_processing))\n'
+  '        apply_crop(&target, (struct mp_rect){0, 0, swframe.fbo->params.w, '
+  'swframe.fbo->params.h},\n'
+  '                   swframe.fbo->params.w, swframe.fbo->params.h);\n'
+  '    else\n'
+  '#endif\n'
+  '    apply_crop(&target, p->dst, swframe.fbo->params.w, swframe.fbo->params.h);\n'),
+ ('video/out/vo_gpu_next.c',
+  '            apply_crop(image, p->src, vo->params->w, vo->params->h);\n',
+  '#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n'
+  '            const struct kmp_metal_source_geometry *metal_geometry = '
+  '&fp->metal_source_geometry;\n'
+  '            image->rotation = metal_geometry->rotation_degrees / 90;\n'
+  '            if (kmp_metal_processing_owns_geometry(p->metal_processing)) {\n'
+  '                kmp_metal_processing_source_geometry(p->metal_processing,\n'
+  '                    mix.num_frames == 1 ? metal_geometry : NULL);\n'
+  '                image->rotation = 0;\n'
+  '                image->crop = (struct pl_rect2df){0, 0, metal_geometry->width, '
+  'metal_geometry->height};\n'
+  '            } else\n'
+  '#endif\n'
+  '            apply_crop(image, p->src, vo->params->w, vo->params->h);\n'))
+
+
 ADDITIONS: dict[str, tuple[tuple[str, str], ...]] = {
     "mpv": (
+        ("video/out/kmedia_vulkan_api.h", "native/mpv-patches/video/out/kmedia_vulkan_api.h"),
+        ("video/out/kmedia_vulkan_interop.h", "native/mpv-patches/video/out/kmedia_vulkan_interop.h"),
+        ("video/out/kmedia_vulkan_interop.c", "native/mpv-patches/video/out/kmedia_vulkan_interop.c"),
+        ("video/out/kmedia_vulkan_processing.h", "native/mpv-patches/video/out/kmedia_vulkan_processing.h"),
+        ("video/out/kmedia_vulkan_processing.c", "native/mpv-patches/video/out/kmedia_vulkan_processing.c"),
+        ("video/out/kmedia_metal_interop.h", "native/mpv-patches/video/out/kmedia_metal_interop.h"),
+        ("video/out/kmedia_metal_interop.m", "native/mpv-patches/video/out/kmedia_metal_interop.m"),
+        ("video/out/kmedia_metal_processing.h", "native/mpv-patches/video/out/kmedia_metal_processing.h"),
+        ("video/out/kmedia_metal_processing.m", "native/mpv-patches/video/out/kmedia_metal_processing.m"),
         (
             "video/out/vulkan/context_ios.m",
             "native/mpv-patches/video/out/vulkan/context_ios.m",
