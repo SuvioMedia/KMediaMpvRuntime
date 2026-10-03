@@ -54,6 +54,22 @@ presentation; those require the consuming player's integration tests. The handof
 uses GPU timeline events and no CPU frame copies or per-frame CPU completion wait.
 The host's optional processor may still perform its own readback.
 
+### Optional iOS Metal source geometry
+
+Probe `kmediampv_embedded_iosvk_geometry_api_version() == 1` before installing a
+host that implements `kmediampvOwnsSourceGeometry` and the source-metadata selector
+in `kmedia_metal_processing.m`. Ownership is latched after the frame's enabled
+callback. The selected queue image supplies immutable crop, clockwise rotation,
+vertical flip and pixel aspect before stereo interpretation. The processor owns
+the full output viewport, including letterboxing; native crop/rotation/distortion
+must not be applied again. Missing output or invalid metadata produces opaque
+black, including seek barriers and disabled/preparing effects. Old v1 hosts keep
+the existing optional-filter bypass contract.
+
+`native/tests/run_metal_processing.py` checks that host policy with deterministic
+transport faults. `native/tests/run_metal_interop.py` checks the real GPU handoff,
+including SDR/HDR color preservation and the opaque-black fallback.
+
 ## Local Android Vulkan processing validation
 
 Android `gpu-next` / `androidvk` exposes the optional

@@ -25,4 +25,7 @@ struct pl_hook_res kmp_metal_interop_process(
     struct kmp_metal_interop *context, const struct pl_hook_params *params,
     const struct pl_color_space *source_color, kmp_metal_encode_fn encode, void *opaque);
 
+// Safe required-output fallback, including when transport allocation fails.
+struct pl_hook_res kmp_metal_interop_blank(const struct pl_hook_params *params);
+
 #endif

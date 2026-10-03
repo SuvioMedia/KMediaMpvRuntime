@@ -322,6 +322,17 @@ int main(void)
         result = process(&f, extended, linear, 64, 48);
         check(&f, result.tex, extended, "recover after bypass and incompatible output");
         clear_results(&f);
+        // A required-output failure must produce opaque black without a working transport.
+        pl_tex blank_target = get_texture(&f, 17, 9);
+        struct pl_hook_res blank = kmp_metal_interop_blank(&(struct pl_hook_params){
+            .gpu = f.gpu, .dispatch = f.dispatch, .tex = blank_target, .color = linear,
+            .components = 4, .rect = {0, 0, 17, 9},
+            .repr = {.sys = PL_COLOR_SYSTEM_RGB, .levels = PL_COLOR_LEVELS_FULL},
+        });
+        assert(blank.output == PL_HOOK_SIG_COLOR && !blank.failed);
+        assert(pl_dispatch_finish(f.dispatch, pl_dispatch_params(.shader = &blank.sh, .target = blank_target)));
+        check(&f, blank_target, (float[4]){0, 0, 0, 1}, "required output is opaque black");
+        clear_results(&f);
         // Teardown with submitted GPU work still in flight.
         result = process(&f, extended, linear, 64, 48);
         assert(result.output == PL_HOOK_SIG_TEX);
@@ -332,7 +343,7 @@ int main(void)
         pl_dispatch_destroy(&f.dispatch);
         pl_vulkan_destroy(&vk);
         pl_log_destroy(&log);
-        puts("PASS: Metal/Vulkan GPU handoff; SDR/PQ/extended linear; 37 HLG source/display cases; alpha; 288 queued resize frames; bypass; teardown");
+        puts("PASS: Metal/Vulkan GPU handoff; SDR/PQ/extended linear; 37 HLG source/display cases; alpha; 288 queued resize frames; bypass; opaque-black required output; teardown");
     }
     return 0;
 }

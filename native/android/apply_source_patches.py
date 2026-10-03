@@ -593,6 +593,62 @@ PATCHES["mpv"] += (
 )
 
 
+# Metal hosts opt into immutable decoded geometry and full-viewport output.
+PATCHES["mpv"] += (('video/out/vo_gpu_next.c',
+  'struct frame_priv {\n    struct vo *vo;\n',
+  'struct frame_priv {\n'
+  '    struct vo *vo;\n'
+  '#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n'
+  '    struct kmp_metal_source_geometry metal_source_geometry;\n'
+  '#endif\n'),
+ ('video/out/vo_gpu_next.c',
+  '    mp_image_params_guess_csp(&par);\n',
+  '    mp_image_params_guess_csp(&par);\n'
+  '#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n'
+  '    struct mp_rect metal_crop = mp_image_crop_valid(&par)\n'
+  '        ? par.crop : (struct mp_rect){0, 0, par.w, par.h};\n'
+  '    fp->metal_source_geometry = (struct kmp_metal_source_geometry){\n'
+  '        .width = par.w, .height = par.h,\n'
+  '        .crop_x0 = metal_crop.x0, .crop_y0 = metal_crop.y0,\n'
+  '        .crop_x1 = metal_crop.x1, .crop_y1 = metal_crop.y1,\n'
+  '        .rotation_degrees = par.rotate, .vertical_flip = par.vflip,\n'
+  '        .pixel_aspect_num = par.p_w, .pixel_aspect_den = par.p_h,\n'
+  '    };\n'
+  '#endif\n'),
+ ('video/out/vo_gpu_next.c',
+  '    // pl_queue advances its internal virtual PTS and culls available frames\n',
+  '#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n'
+  '    if (kmp_metal_processing_owns_geometry(p->metal_processing))\n'
+  '        params.distort_params = NULL;\n'
+  '#endif\n'
+  '    // pl_queue advances its internal virtual PTS and culls available frames\n'),
+ ('video/out/vo_gpu_next.c',
+  '    apply_crop(&target, p->dst, swframe.fbo->params.w, swframe.fbo->params.h);\n',
+  '#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n'
+  '    if (kmp_metal_processing_owns_geometry(p->metal_processing))\n'
+  '        apply_crop(&target, (struct mp_rect){0, 0, swframe.fbo->params.w, '
+  'swframe.fbo->params.h},\n'
+  '                   swframe.fbo->params.w, swframe.fbo->params.h);\n'
+  '    else\n'
+  '#endif\n'
+  '    apply_crop(&target, p->dst, swframe.fbo->params.w, swframe.fbo->params.h);\n'),
+ ('video/out/vo_gpu_next.c',
+  '            apply_crop(image, p->src, vo->params->w, vo->params->h);\n',
+  '#if (HAVE_COCOA || HAVE_IOS_VULKAN) && HAVE_VULKAN\n'
+  '            const struct kmp_metal_source_geometry *metal_geometry = '
+  '&fp->metal_source_geometry;\n'
+  '            image->rotation = metal_geometry->rotation_degrees / 90;\n'
+  '            if (kmp_metal_processing_owns_geometry(p->metal_processing)) {\n'
+  '                kmp_metal_processing_source_geometry(p->metal_processing,\n'
+  '                    mix.num_frames == 1 ? metal_geometry : NULL);\n'
+  '                image->rotation = 0;\n'
+  '                image->crop = (struct pl_rect2df){0, 0, metal_geometry->width, '
+  'metal_geometry->height};\n'
+  '            } else\n'
+  '#endif\n'
+  '            apply_crop(image, p->src, vo->params->w, vo->params->h);\n'))
+
+
 ADDITIONS: dict[str, tuple[tuple[str, str], ...]] = {
     "mpv": (
         ("video/out/kmedia_vulkan_api.h", "native/mpv-patches/video/out/kmedia_vulkan_api.h"),

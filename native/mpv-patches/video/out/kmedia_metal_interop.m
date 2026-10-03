@@ -365,3 +365,20 @@ struct pl_hook_res kmp_metal_interop_process(struct kmp_metal_interop *p,
         };
     }
 }
+
+struct pl_hook_res kmp_metal_interop_blank(const struct pl_hook_params *hp)
+{
+    pl_shader sh = pl_dispatch_begin(hp->dispatch);
+    // Do not allocate an intermediate texture: this also works when the optional transport
+    // has exhausted its image budget. RGB hooks run after range/matrix normalization.
+    if (!pl_shader_custom(sh, &(struct pl_custom_shader){
+            .input = PL_SHADER_SIG_NONE, .output = PL_SHADER_SIG_COLOR,
+            .output_w = hp->tex->params.w, .output_h = hp->tex->params.h,
+            .body = "color = vec4(0.0, 0.0, 0.0, 1.0);",
+            .description = "KMedia required output unavailable"})) {
+        pl_dispatch_abort(hp->dispatch, &sh);
+        return (struct pl_hook_res){.failed = true};
+    }
+    return (struct pl_hook_res){.output = PL_HOOK_SIG_COLOR, .sh = sh,
+        .repr = hp->repr, .color = hp->color, .components = hp->components, .rect = hp->rect};
+}
