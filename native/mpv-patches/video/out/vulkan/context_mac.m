@@ -36,6 +36,8 @@
 - (double)kmediampvRefreshRate;
 - (void)kmediampvRecordPresentation;
 - (uint64_t)kmediampvPresentedFrames;
+- (BOOL)kmediampvProcessingNeedsFrame;
+- (void)kmediampvSetProcessingWakeup:(void (*)(void *))callback context:(void *)context;
 @end
 
 struct priv {
@@ -152,9 +154,19 @@ static bool update_geometry(struct ra_ctx *ctx, int *events)
 static void mac_vk_uninit(struct ra_ctx *ctx)
 {
     struct priv *p = ctx->priv;
+    if ([p->embedded_view respondsToSelector:@selector(kmediampvSetProcessingWakeup:context:)])
+        [p->embedded_view kmediampvSetProcessingWakeup:NULL context:NULL];
     ra_vk_ctx_uninit(ctx);
     mpvk_uninit(&p->vk);
     detach_prepared_host(p);
+}
+
+static void processing_wakeup(void *context)
+{
+    // The host has a concrete filter/result update. Request a redraw directly;
+    // a level-triggered EXPOSE event can keep the paused VO/core spinning while
+    // an earlier redraw is still pending, without drawing the newly ready graph.
+    vo_redraw(context);
 }
 
 static void mac_vk_swap_buffers(struct ra_ctx *ctx)
@@ -198,6 +210,8 @@ static bool mac_vk_init(struct ra_ctx *ctx)
         MP_MSG(ctx, msgl, "Embedded macvk wid is not a prepared KMediaPlayer Metal host.\n");
         goto error;
     }
+    if ([p->embedded_view respondsToSelector:@selector(kmediampvSetProcessingWakeup:context:)])
+        [p->embedded_view kmediampvSetProcessingWakeup:processing_wakeup context:ctx->vo];
     VkMetalSurfaceCreateInfoEXT mac_info = {
         .sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT,
         .pNext = NULL,

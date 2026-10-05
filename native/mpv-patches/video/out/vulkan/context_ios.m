@@ -22,6 +22,16 @@
 #include "context.h"
 #include "utils.h"
 
+// Optional processing host. The ordinary CAMetalLayer route remains valid.
+@interface CAMetalLayer (KMediaMpvProcessingWakeup)
+- (void)kmediampvSetProcessingWakeup:(void (*)(void *))callback context:(void *)context;
+@end
+
+static void processing_wakeup(void *context)
+{
+    vo_redraw(context);
+}
+
 struct priv {
     struct mpvk_ctx vk;
     CAMetalLayer *layer;
@@ -63,7 +73,9 @@ static bool update_geometry(struct ra_ctx *ctx, int *events)
     p->height = height;
     if (changed && events)
         *events |= VO_EVENT_RESIZE | VO_EVENT_EXPOSE;
-    return !ctx->swapchain || !changed || ra_vk_ctx_resize(ctx, width, height);
+    // Reconfiguration resets vo->dwidth/dheight to the new video size even when
+    // the host layer did not resize. Restore its viewport on every reconfig.
+    return !ctx->swapchain || ra_vk_ctx_resize(ctx, width, height);
 }
 
 static void ios_vk_uninit(struct ra_ctx *ctx)
@@ -71,6 +83,8 @@ static void ios_vk_uninit(struct ra_ctx *ctx)
     struct priv *p = ctx->priv;
     if (!p)
         return;
+    if ([p->layer respondsToSelector:@selector(kmediampvSetProcessingWakeup:context:)])
+        [p->layer kmediampvSetProcessingWakeup:NULL context:NULL];
     ra_vk_ctx_uninit(ctx);
     mpvk_uninit(&p->vk);
     [p->layer release];
@@ -116,6 +130,8 @@ static bool ios_vk_init(struct ra_ctx *ctx)
         goto error;
     }
     p->layer = [layer retain];
+    if ([p->layer respondsToSelector:@selector(kmediampvSetProcessingWakeup:context:)])
+        [p->layer kmediampvSetProcessingWakeup:processing_wakeup context:ctx->vo];
     if (!layer_size(p, &p->width, &p->height))
         goto error;
     if (!mpvk_init(vk, ctx, VK_EXT_METAL_SURFACE_EXTENSION_NAME))

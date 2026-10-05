@@ -151,6 +151,9 @@ def main() -> int:
     repository = Path(__file__).resolve().parent.parent
     shutil.copyfile(repository / "NOTICE", arguments.output / "NOTICE")
     shutil.copyfile(repository / "LICENSE", arguments.output / "LICENSE")
+    shutil.copyfile(repository / "THIRD_PARTY_NOTICES.md", arguments.output / "THIRD_PARTY_NOTICES.md")
+    shutil.copytree(repository / "LICENSES", arguments.output / "LICENSES")
+    shutil.copytree(repository / "compliance" / "components", arguments.output / "compliance" / "components")
     deterministic_zip(arguments.output, arguments.archive, arguments.epoch)
     arguments.podspec.write_text(
         podspec(arguments.version, arguments.runtime_version, arguments.archive.name, digest(arguments.archive)),

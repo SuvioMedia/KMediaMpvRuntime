@@ -122,7 +122,9 @@ def prepare(
         raise ValueError("MoltenVK prefix output already exists")
 
     member_name, platform, must_thin = TARGETS[target]
-    with tempfile.TemporaryDirectory(prefix="kmediampv-moltenvk-") as temporary_name:
+    # Keep the staging file on the destination filesystem: os.replace is atomic
+    # only within one volume (the build prefix may be on an external disk).
+    with tempfile.TemporaryDirectory(prefix=".kmediampv-moltenvk-", dir=library_dir) as temporary_name:
         temporary = Path(temporary_name)
         selected = temporary / "selected"
         with tarfile.open(archive_path, mode="r:") as archive:
