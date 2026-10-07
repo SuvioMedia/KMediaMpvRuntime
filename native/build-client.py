@@ -364,6 +364,13 @@ def build_meson(component: str, sources: Path, work: Path, prefix: Path, target:
     ]
     if cross is not None:
         command.extend(["--cross-file", str(cross)])
+    if component == "mpv" and target.startswith("windows-"):
+        # Header-only ANGLE dispatch: the embedding player supplies its EGL DLL.
+        headers = ROOT / "native/windows/include"
+        for relative, expected in load_json(ROOT / "native/windows/headers.json")["sha256"].items():
+            if sha256(headers / relative) != expected:
+                raise ValueError(f"ANGLE header checksum differs: {relative}")
+        command.append(f"-Dc_args=-I{headers.as_posix()}")
     run(*command, env=env)
     run("meson", "compile", "-C", str(work / f"build-{component}"), "-j", str(os.cpu_count() or 4), env=env)
     run("meson", "install", "-C", str(work / f"build-{component}"), env=env)

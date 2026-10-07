@@ -88,7 +88,10 @@
           "-Dplain-gl=disabled": "-Dplain-gl=enabled"
         },
         "append": [
-          "-Dd3d-hwaccel=enabled"
+          "-Dd3d-hwaccel=enabled",
+          "-Degl-angle=enabled",
+          "-Degl-angle-lib=disabled",
+          "-Degl-angle-win32=disabled"
         ]
       },
       "ffmpeg": {

@@ -676,6 +676,117 @@ ADDITIONS: dict[str, tuple[tuple[str, str], ...]] = {
 }
 
 
+# Embedded ANGLE: resolve EGL per context through the render API.
+PATCHES["mpv"] += (('video/out/opengl/common.h',
+  '    void *fn_ctx;\n',
+  '    void *fn_ctx;\n'
+  '\n'
+  '    // Private EGL entry points captured while the render API resolver is alive.\n'
+  '    struct mp_angle_functions *angle_functions;\n'),
+ ('video/out/opengl/angle_dynamic.h',
+  'bool angle_load(void);\n',
+  'bool angle_load(void);\n'
+  '\n'
+  '// An embedding application may load a private ANGLE module. Its EGL contexts\n'
+  '// and thread-local state must never be mixed with the process-global LIBEGL.DLL.\n'
+  'struct mp_angle_functions {\n'
+  '    EGLDisplay (EGLAPIENTRY *get_current_display)(void);\n'
+  '    EGLContext (EGLAPIENTRY *get_current_context)(void);\n'
+  '    const char *(EGLAPIENTRY *query_string)(EGLDisplay, EGLint);\n'
+  '    void *(EGLAPIENTRY *get_proc_address)(const char *);\n'
+  '};\n'),
+ ('video/out/opengl/libmpv_gl.c',
+  '#include "video/out/gpu/ra.h"\n',
+  '#include "video/out/gpu/ra.h"\n#if HAVE_EGL_ANGLE\n#include "angle_dynamic.h"\n#endif\n'),
+ ('video/out/opengl/libmpv_gl.c',
+  '    // initialize a blank ra_ctx to reuse ra_gl_ctx\n',
+  '#if HAVE_EGL_ANGLE\n'
+  "    // Resolve once here: the caller's resolver is only guaranteed during init.\n"
+  '    // Keep these per GL context, including when several private ANGLE copies\n'
+  '    // coexist. Non-EGL callers continue through the standard ANGLE loader.\n'
+  '    struct mp_angle_functions *egl = talloc_zero(p->gl, struct mp_angle_functions);\n'
+  '    void *opaque = init_params->get_proc_address_ctx;\n'
+  '    egl->get_current_display = init_params->get_proc_address(opaque, "eglGetCurrentDisplay");\n'
+  '    egl->get_current_context = init_params->get_proc_address(opaque, "eglGetCurrentContext");\n'
+  '    egl->query_string = init_params->get_proc_address(opaque, "eglQueryString");\n'
+  '    egl->get_proc_address = init_params->get_proc_address(opaque, "eglGetProcAddress");\n'
+  '    if (egl->get_current_display && egl->get_current_context &&\n'
+  '        egl->query_string && egl->get_proc_address)\n'
+  '        p->gl->angle_functions = egl;\n'
+  '    else\n'
+  '        talloc_free(egl);\n'
+  '#endif\n'
+  '\n'
+  '    // initialize a blank ra_ctx to reuse ra_gl_ctx\n'),
+ ('video/out/opengl/hwdec_d3d11egl.c',
+  '    if (!angle_load())\n'
+  '        return -1;\n'
+  '\n'
+  '    EGLDisplay egl_display = eglGetCurrentDisplay();\n',
+  '    GL *gl = ra_gl_get(hw->ra_ctx->ra);\n'
+  '    struct mp_angle_functions fallback;\n'
+  '    const struct mp_angle_functions *egl = gl->angle_functions;\n'
+  '    if (!egl) {\n'
+  '        if (!angle_load())\n'
+  '            return -1;\n'
+  '        fallback = (struct mp_angle_functions) {\n'
+  '            .get_current_display = eglGetCurrentDisplay,\n'
+  '            .get_current_context = eglGetCurrentContext,\n'
+  '            .query_string = eglQueryString,\n'
+  '            .get_proc_address = (void *)eglGetProcAddress,\n'
+  '        };\n'
+  '        egl = &fallback;\n'
+  '    }\n'
+  '\n'
+  '    EGLDisplay egl_display = egl->get_current_display();\n'),
+ ('video/out/opengl/hwdec_d3d11egl.c',
+  '    if (!eglGetCurrentContext())\n'
+  '        return -1;\n'
+  '\n'
+  '    GL *gl = ra_gl_get(hw->ra_ctx->ra);\n'
+  '\n'
+  '    const char *exts = eglQueryString(egl_display, EGL_EXTENSIONS);\n',
+  '    if (!egl->get_current_context())\n'
+  '        return -1;\n'
+  '\n'
+  '    const char *exts = egl->query_string(egl_display, EGL_EXTENSIONS);\n'
+  '    const char *client_exts = egl->query_string(EGL_NO_DISPLAY, EGL_EXTENSIONS);\n'),
+ ('video/out/opengl/hwdec_d3d11egl.c',
+  '        !gl_check_extension(exts, "EGL_EXT_device_query") ||\n',
+  '        !(gl_check_extension(exts, "EGL_EXT_device_query") ||\n'
+  '          gl_check_extension(client_exts, "EGL_EXT_device_query")) ||\n'),
+ ('video/out/opengl/hwdec_d3d11egl.c',
+  'eglGetProcAddress("eglCreateStreamKHR")',
+  'egl->get_proc_address("eglCreateStreamKHR")'),
+ ('video/out/opengl/hwdec_d3d11egl.c',
+  'eglGetProcAddress("eglDestroyStreamKHR")',
+  'egl->get_proc_address("eglDestroyStreamKHR")'),
+ ('video/out/opengl/hwdec_d3d11egl.c',
+  'eglGetProcAddress("eglStreamConsumerAcquireKHR")',
+  'egl->get_proc_address("eglStreamConsumerAcquireKHR")'),
+ ('video/out/opengl/hwdec_d3d11egl.c',
+  'eglGetProcAddress("eglStreamConsumerReleaseKHR")',
+  'egl->get_proc_address("eglStreamConsumerReleaseKHR")'),
+ ('video/out/opengl/hwdec_d3d11egl.c',
+  'eglGetProcAddress("eglStreamConsumerGLTextureExternalAttribsNV")',
+  'egl->get_proc_address("eglStreamConsumerGLTextureExternalAttribsNV")'),
+ ('video/out/opengl/hwdec_d3d11egl.c',
+  'eglGetProcAddress("eglCreateStreamProducerD3DTextureANGLE")',
+  'egl->get_proc_address("eglCreateStreamProducerD3DTextureANGLE")'),
+ ('video/out/opengl/hwdec_d3d11egl.c',
+  'eglGetProcAddress("eglStreamPostD3DTextureANGLE")',
+  'egl->get_proc_address("eglStreamPostD3DTextureANGLE")'),
+ ('video/out/opengl/hwdec_d3d11egl.c',
+  'eglGetProcAddress("eglQueryDisplayAttribEXT")',
+  'egl->get_proc_address("eglQueryDisplayAttribEXT")'),
+ ('video/out/opengl/hwdec_d3d11egl.c',
+  'eglGetProcAddress("eglQueryDeviceAttribEXT")',
+  'egl->get_proc_address("eglQueryDeviceAttribEXT")'),
+ ('meson.build',
+  "    features['gl-win32'] and\n        cc.has_header_symbol('EGL/eglext.h',",
+  "    features['win32-desktop'] and gl_allowed and\n        cc.has_header_symbol('EGL/eglext.h',"))
+
+
 def apply_patches(sources: Path) -> dict[str, object]:
     records: list[dict[str, str]] = []
     for component, replacements in REPLACEMENTS.items():

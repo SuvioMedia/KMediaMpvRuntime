@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "scope": "Windows desktop embedded ANGLE and D3D11 video scaling",
+  "runtimeId": "kmediaffmpeg-9.0.1-ass-0.17.5-cbb827ab5d596906",
+  "localRuntimeVersion": "0.1.0-scaling.20261007.2",
+  "checks": {
+    "pythonReleaseTests": { "passed": 14, "failed": 0 },
+    "gradleVerifyPublicBoundary": "passed",
+    "windowsPlayback": {
+      "consumerTest": "MpvWindowsScalingPlaybackTest.scalesPausedDecodedFramesAndPreservesOtherFilters",
+      "timestampUtc": "2026-10-07T21:39:46.979Z",
+      "passed": 1,
+      "failed": 0,
+      "gpuVendor": "NVIDIA",
+      "outputWidth": 1708,
+      "outputHeight": 960,
+      "videoProcessorResult": "APPLIED",
+      "superResolutionResult": "BACKEND_REQUESTED"
+    }
+  },
+  "limitations": [
+    "Local GPU playback used the candidate runtime, before the released rc.13 FFmpeg checksum update on main.",
+    "Driver acceptance does not prove per-frame AI enhancement.",
+    "The Android ARM device matrix was not rerun for this Windows-only change."
+  ]
+}

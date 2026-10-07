@@ -98,3 +98,8 @@ FreeType distribution-documentation acknowledgment: This software is based in pa
 The checked-in Gradle wrapper is distributed under Apache-2.0; its license is
 kept at `gradle/wrapper/LICENSE`. Undocumented or auto-detected dependencies
 make a native build ineligible for publication.
+
+
+## ANGLE and Khronos EGL headers
+
+The Windows build uses public header declarations from ANGLE revision `8988bdf12f3bad432b523897cc940ccfa2f67275`. No ANGLE binary is built or distributed by this runtime. Original notices remain in `native/windows/include`; the ANGLE BSD license is in `LICENSES/BSD-3-Clause-ANGLE.txt`, and Khronos EGL uses Apache-2.0 (`LICENSES/Apache-2.0.txt`). KHR platform declarations retain their embedded permissive license.
