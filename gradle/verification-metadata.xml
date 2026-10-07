@@ -3210,12 +3210,40 @@
             <sha256 value="dd0fc5ed7b1f351e1d7d94b886033508d676c2cfc11b77d6815bcb16d8ccca96" origin="Verified immutable release 0.1.0-rc.12"/>
          </artifact>
       </component>
+      <component group="cc.suviomedia" name="kmedia-ass-runtime-android" version="0.1.0-rc.13">
+         <artifact name="kmedia-ass-runtime-android-0.1.0-rc.13-javadoc.jar">
+            <sha256 value="6d8dc305f2044c469a9b43761b481d7c406c61e9625451338942235c160b0e89" origin="Verified FFmpeg rc.13 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ass-runtime-android-0.1.0-rc.13-sources.jar">
+            <sha256 value="abc84ffd469dbe848866a63c32478f0b551382d7b3b8b913912e47796180e720" origin="Verified FFmpeg rc.13 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ass-runtime-android-0.1.0-rc.13.aar">
+            <sha256 value="a6b22e4372c32894218ba25012ff5ce501e34ea973060cc6749000a92a57194b" origin="Verified FFmpeg rc.13 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ass-runtime-android-0.1.0-rc.13.pom">
+            <sha256 value="8ef64cad0aa2b3e192c9393b31ced69ad7e4eb9165c5a90b48786fa4497548c0" origin="Verified FFmpeg rc.13 release archive SHA256SUMS"/>
+         </artifact>
+      </component>
       <component group="cc.suviomedia" name="kmedia-ass-runtime-desktop" version="0.1.0-rc.12">
          <artifact name="kmedia-ass-runtime-desktop-0.1.0-rc.12.jar">
             <sha256 value="aa97a27a8fc6172796bf184cd0958b38817cfbcf04d0c5026e1d1c2960e7ae75" origin="Verified immutable release 0.1.0-rc.12"/>
          </artifact>
          <artifact name="kmedia-ass-runtime-desktop-0.1.0-rc.12.pom">
             <sha256 value="cbdb31cf67a210787592415afdefa3c6c0d180d7237ad5691020d6f7f5287c62" origin="Verified immutable release 0.1.0-rc.12"/>
+         </artifact>
+      </component>
+      <component group="cc.suviomedia" name="kmedia-ass-runtime-desktop" version="0.1.0-rc.13">
+         <artifact name="kmedia-ass-runtime-desktop-0.1.0-rc.13-javadoc.jar">
+            <sha256 value="1262853f4c2c9c78fec1646af07b12b987f286ea8ab3b2c9d2f1689faf849b8b" origin="Verified FFmpeg rc.13 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ass-runtime-desktop-0.1.0-rc.13-sources.jar">
+            <sha256 value="064b1ffb9c52626afb8eaf41459366523e6914a2a07ab7a61fd4734fad2f2d48" origin="Verified FFmpeg rc.13 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ass-runtime-desktop-0.1.0-rc.13.jar">
+            <sha256 value="dd8a4cc665f484ec2b07dec6f2dbb23471bdc664ab714d70978bb7739656eb2c" origin="Verified FFmpeg rc.13 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ass-runtime-desktop-0.1.0-rc.13.pom">
+            <sha256 value="3f84a0fcde35fb0d0362f45dfa38df667b478b1b310d3f0fc4e6bfea56b76bf0" origin="Verified FFmpeg rc.13 release archive SHA256SUMS"/>
          </artifact>
       </component>
       <component group="cc.suviomedia" name="kmedia-ffmpeg-runtime-android" version="0.1.0-rc.12">
@@ -3226,12 +3254,40 @@
             <sha256 value="54ee900e0dda43d56531bc66efec6e1c7e15670ee062a9050808b4f785f29a8e" origin="Verified immutable release 0.1.0-rc.12"/>
          </artifact>
       </component>
+      <component group="cc.suviomedia" name="kmedia-ffmpeg-runtime-android" version="0.1.0-rc.13">
+         <artifact name="kmedia-ffmpeg-runtime-android-0.1.0-rc.13-javadoc.jar">
+            <sha256 value="6d8dc305f2044c469a9b43761b481d7c406c61e9625451338942235c160b0e89" origin="Verified FFmpeg rc.13 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ffmpeg-runtime-android-0.1.0-rc.13-sources.jar">
+            <sha256 value="5abf521cabb67066dd45ed8bc12254229557d1984c7c0e1ad3ce237e9e4185fc" origin="Verified FFmpeg rc.13 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ffmpeg-runtime-android-0.1.0-rc.13.aar">
+            <sha256 value="f8328564384b6ab68f7f312b4c54a6407e5dbb8f34bba55675922df9f36eab5d" origin="Verified FFmpeg rc.13 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ffmpeg-runtime-android-0.1.0-rc.13.pom">
+            <sha256 value="7552bbaf49e85f474dfe95eb437fc686ed8197a58af8c6d51a134bc38a2d7a30" origin="Verified FFmpeg rc.13 release archive SHA256SUMS"/>
+         </artifact>
+      </component>
       <component group="cc.suviomedia" name="kmedia-ffmpeg-runtime-desktop" version="0.1.0-rc.12">
          <artifact name="kmedia-ffmpeg-runtime-desktop-0.1.0-rc.12.jar">
             <sha256 value="45f1054a2e6c9577e527ecdb470f43b7f58f94cac8e85021d84eca87fada4761" origin="Verified immutable release 0.1.0-rc.12"/>
          </artifact>
          <artifact name="kmedia-ffmpeg-runtime-desktop-0.1.0-rc.12.pom">
             <sha256 value="fcfb30ba4bef8fa6a5de35f0ee427f50de88972c15bfd88902ffbf19d041c913" origin="Verified immutable release 0.1.0-rc.12"/>
+         </artifact>
+      </component>
+      <component group="cc.suviomedia" name="kmedia-ffmpeg-runtime-desktop" version="0.1.0-rc.13">
+         <artifact name="kmedia-ffmpeg-runtime-desktop-0.1.0-rc.13-javadoc.jar">
+            <sha256 value="e5e4ab7868ef201f11cba8d72aab11cdfabccb99a2e00d803d2dc7dfaa4d7319" origin="Verified FFmpeg rc.13 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ffmpeg-runtime-desktop-0.1.0-rc.13-sources.jar">
+            <sha256 value="6e5bc8f9fb268e6d45f7d1cbc32029d38ddde171d21bd03b43c186a9a79d2a15" origin="Verified FFmpeg rc.13 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ffmpeg-runtime-desktop-0.1.0-rc.13.jar">
+            <sha256 value="1c1f9ae7af2b2ef8d11bc377500895a864578e0e7a88097b2fc5b55bf25ce375" origin="Verified FFmpeg rc.13 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ffmpeg-runtime-desktop-0.1.0-rc.13.pom">
+            <sha256 value="5d7aa10a0a6eacdec1345344aab4b7aab65c506c420c2124a9cc3ad332670865" origin="Verified FFmpeg rc.13 release archive SHA256SUMS"/>
          </artifact>
       </component>
    </components>
