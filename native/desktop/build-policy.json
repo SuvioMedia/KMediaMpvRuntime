@@ -83,9 +83,13 @@
       "mpv": {
         "replace": {
           "-Dwasapi=disabled": "-Dwasapi=enabled",
-          "-Dwin32-threads=disabled": "-Dwin32-threads=enabled"
+          "-Dwin32-threads=disabled": "-Dwin32-threads=enabled",
+          "-Dgl=disabled": "-Dgl=enabled",
+          "-Dplain-gl=disabled": "-Dplain-gl=enabled"
         },
-        "append": []
+        "append": [
+          "-Dd3d-hwaccel=enabled"
+        ]
       },
       "ffmpeg": {
         "replace": {},
