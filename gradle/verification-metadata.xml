@@ -3224,6 +3224,20 @@
             <sha256 value="8ef64cad0aa2b3e192c9393b31ced69ad7e4eb9165c5a90b48786fa4497548c0" origin="Verified FFmpeg rc.13 release archive SHA256SUMS"/>
          </artifact>
       </component>
+      <component group="cc.suviomedia" name="kmedia-ass-runtime-android" version="0.1.0-rc.14">
+         <artifact name="kmedia-ass-runtime-android-0.1.0-rc.14-javadoc.jar">
+            <sha256 value="6d8dc305f2044c469a9b43761b481d7c406c61e9625451338942235c160b0e89" origin="Verified FFmpeg rc.14 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ass-runtime-android-0.1.0-rc.14-sources.jar">
+            <sha256 value="abc84ffd469dbe848866a63c32478f0b551382d7b3b8b913912e47796180e720" origin="Verified FFmpeg rc.14 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ass-runtime-android-0.1.0-rc.14.aar">
+            <sha256 value="b531d29e0a1a3d50df4c96920503155f54dfff5c65d874565fb2e28b9e7b9113" origin="Verified FFmpeg rc.14 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ass-runtime-android-0.1.0-rc.14.pom">
+            <sha256 value="e73e98a5bec02626373a08e7a666c9a357afe2587d8ca0ed065ecbdf466cffed" origin="Verified FFmpeg rc.14 release archive SHA256SUMS"/>
+         </artifact>
+      </component>
       <component group="cc.suviomedia" name="kmedia-ass-runtime-desktop" version="0.1.0-rc.12">
          <artifact name="kmedia-ass-runtime-desktop-0.1.0-rc.12.jar">
             <sha256 value="aa97a27a8fc6172796bf184cd0958b38817cfbcf04d0c5026e1d1c2960e7ae75" origin="Verified immutable release 0.1.0-rc.12"/>
@@ -3244,6 +3258,20 @@
          </artifact>
          <artifact name="kmedia-ass-runtime-desktop-0.1.0-rc.13.pom">
             <sha256 value="3f84a0fcde35fb0d0362f45dfa38df667b478b1b310d3f0fc4e6bfea56b76bf0" origin="Verified FFmpeg rc.13 release archive SHA256SUMS"/>
+         </artifact>
+      </component>
+      <component group="cc.suviomedia" name="kmedia-ass-runtime-desktop" version="0.1.0-rc.14">
+         <artifact name="kmedia-ass-runtime-desktop-0.1.0-rc.14-javadoc.jar">
+            <sha256 value="f93a61328d1a871581a70f10ecdb16e848d697dc86ae30f197f4e45dc748f3a6" origin="Verified FFmpeg rc.14 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ass-runtime-desktop-0.1.0-rc.14-sources.jar">
+            <sha256 value="a61211368414af6410ba6abb51b16677741d9f28d6e4154781d175a48fba080e" origin="Verified FFmpeg rc.14 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ass-runtime-desktop-0.1.0-rc.14.jar">
+            <sha256 value="79d0decc8406937897e8998ed7673c663b40b37363a09cb36927f76ab22a6b66" origin="Verified FFmpeg rc.14 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ass-runtime-desktop-0.1.0-rc.14.pom">
+            <sha256 value="62d3cf6cffe0ad003bb152b3026b2ec6a1d6687e5efe3dab5b11fcdcb5399519" origin="Verified FFmpeg rc.14 release archive SHA256SUMS"/>
          </artifact>
       </component>
       <component group="cc.suviomedia" name="kmedia-ffmpeg-runtime-android" version="0.1.0-rc.12">
@@ -3268,6 +3296,20 @@
             <sha256 value="7552bbaf49e85f474dfe95eb437fc686ed8197a58af8c6d51a134bc38a2d7a30" origin="Verified FFmpeg rc.13 release archive SHA256SUMS"/>
          </artifact>
       </component>
+      <component group="cc.suviomedia" name="kmedia-ffmpeg-runtime-android" version="0.1.0-rc.14">
+         <artifact name="kmedia-ffmpeg-runtime-android-0.1.0-rc.14-javadoc.jar">
+            <sha256 value="6d8dc305f2044c469a9b43761b481d7c406c61e9625451338942235c160b0e89" origin="Verified FFmpeg rc.14 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ffmpeg-runtime-android-0.1.0-rc.14-sources.jar">
+            <sha256 value="5abf521cabb67066dd45ed8bc12254229557d1984c7c0e1ad3ce237e9e4185fc" origin="Verified FFmpeg rc.14 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ffmpeg-runtime-android-0.1.0-rc.14.aar">
+            <sha256 value="8f6c4692cdeba62e9407dd5762a90caa966252e21cfad619277ec23a255612c9" origin="Verified FFmpeg rc.14 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ffmpeg-runtime-android-0.1.0-rc.14.pom">
+            <sha256 value="985ca5ac76e8a06e2992839f8030e63861695fd28fbbc910f206761441dc0439" origin="Verified FFmpeg rc.14 release archive SHA256SUMS"/>
+         </artifact>
+      </component>
       <component group="cc.suviomedia" name="kmedia-ffmpeg-runtime-desktop" version="0.1.0-rc.12">
          <artifact name="kmedia-ffmpeg-runtime-desktop-0.1.0-rc.12.jar">
             <sha256 value="45f1054a2e6c9577e527ecdb470f43b7f58f94cac8e85021d84eca87fada4761" origin="Verified immutable release 0.1.0-rc.12"/>
@@ -3288,6 +3330,20 @@
          </artifact>
          <artifact name="kmedia-ffmpeg-runtime-desktop-0.1.0-rc.13.pom">
             <sha256 value="5d7aa10a0a6eacdec1345344aab4b7aab65c506c420c2124a9cc3ad332670865" origin="Verified FFmpeg rc.13 release archive SHA256SUMS"/>
+         </artifact>
+      </component>
+      <component group="cc.suviomedia" name="kmedia-ffmpeg-runtime-desktop" version="0.1.0-rc.14">
+         <artifact name="kmedia-ffmpeg-runtime-desktop-0.1.0-rc.14-javadoc.jar">
+            <sha256 value="0edb0ac907e38010192a98aac95f10b6ab742521a5bf07d52525f770e3b1c3cb" origin="Verified FFmpeg rc.14 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ffmpeg-runtime-desktop-0.1.0-rc.14-sources.jar">
+            <sha256 value="30266bf636fc7f334ea7c027c060051e0a9ea9a8c862cee5366f46aa39cacd9a" origin="Verified FFmpeg rc.14 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ffmpeg-runtime-desktop-0.1.0-rc.14.jar">
+            <sha256 value="9473ae78bdd554cfc087399d2773dd81b8adfc08b45a8e39dfc3db3156ab7e2d" origin="Verified FFmpeg rc.14 release archive SHA256SUMS"/>
+         </artifact>
+         <artifact name="kmedia-ffmpeg-runtime-desktop-0.1.0-rc.14.pom">
+            <sha256 value="592412fe42aa87b20535dfe666d02f6d1557cb8d9d2a078873dd4eaed1a1f7f9" origin="Verified FFmpeg rc.14 release archive SHA256SUMS"/>
          </artifact>
       </component>
    </components>
