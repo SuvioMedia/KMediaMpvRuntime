@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import re
 import shutil
 import subprocess
@@ -55,6 +56,18 @@ def sha256(path: Path) -> str:
         for block in iter(lambda: source.read(1024 * 1024), b""):
             value.update(block)
     return value.hexdigest()
+
+
+
+def signature_independent_sha256(path: Path) -> str | None:
+    """Uses the digest implementation that native/build-client.py writes into the manifest."""
+    specification = importlib.util.spec_from_file_location(
+        "kmediampv_build_client", Path(__file__).resolve().parents[1] / "native/build-client.py"
+    )
+    module = importlib.util.module_from_spec(specification)
+    assert specification.loader is not None
+    specification.loader.exec_module(module)
+    return module.signature_independent_sha256(path)
 
 
 def dependencies(path: Path, target: str, readelf: str) -> list[str]:
@@ -135,6 +148,10 @@ def main() -> int:
             raise ValueError("client manifest library size differs")
         if not SHA256.fullmatch(indexed[name]) or indexed[name] != sha256(path):
             raise ValueError("client manifest library hash differs")
+        if arguments.target.startswith("macos-") and manifest.get(
+            prefix + "signatureIndependentSha256"
+        ) != signature_independent_sha256(path):
+            raise ValueError("client manifest library signature-independent hash differs")
         components.add(manifest.get(prefix + "component", ""))
     expected_components = {"mpv", "libplacebo"}
     if apple:
@@ -155,6 +172,8 @@ def main() -> int:
     }
     if apple:
         expected_keys.add("moltenVkVersion")
+    if arguments.target.startswith("macos-"):
+        expected_keys |= {f"library.{index}.signatureIndependentSha256" for index in range(len(actual))}
     if set(manifest) != expected_keys:
         raise ValueError("client manifest key set is not closed")
     for library in runtime.iterdir():

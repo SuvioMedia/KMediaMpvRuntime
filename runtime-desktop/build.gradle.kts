@@ -51,6 +51,12 @@ abstract class VerifyDesktopMpvRuntimePayload : DefaultTask() {
                 require(sha256 == manifest.getProperty("library.$index.sha256")) {
                     "MPV runtime checksum differs for $platform/$name."
                 }
+                if (platform.startsWith("macos-")) {
+                    val digest = manifest.getProperty("library.$index.signatureIndependentSha256").orEmpty()
+                    require(digest.matches(Regex("[0-9a-f]{64}"))) {
+                        "MPV runtime $platform/$name omits its signature-independent checksum."
+                    }
+                }
             }
         }
     }
